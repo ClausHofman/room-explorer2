@@ -1,0 +1,32 @@
+{
+    "rooms": [
+        {
+            "room_id": "room0",
+            "name": "First room",
+            "description": "Test Room",
+            "exits": {
+                "north": "room1"
+            },
+            "objects": [],
+            "creatures": []
+        },
+        {
+            "room_id": "room1",
+            "name": "Second room",
+            "description": "Test Room",
+            "exits": {
+                "south": "room0"
+            },
+            "objects": [],
+            "creatures": []
+        }
+    ],
+    "player": {
+        "name": "TestPlayer",
+        "current_room": "room0",
+        "inventory": {
+            "items": []
+        },
+        "equipment": {}
+    }
+}

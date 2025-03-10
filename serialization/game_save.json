@@ -1,0 +1,57 @@
+{
+    "rooms": [
+        {
+            "room_id": "room0",
+            "name": "Hallway",
+            "description": "A long narrow corridor.",
+            "exits": {
+                "north": "room1"
+            },
+            "objects": [],
+            "creatures": []
+        },
+        {
+            "room_id": "room1",
+            "name": "A room",
+            "description": "A strange room.",
+            "exits": {
+                "south": "room0"
+            },
+            "objects": [
+                {
+                    "name": "Table",
+                    "description": "A wooden dining table.",
+                    "inventory": [
+                        {
+                            "name": "Book",
+                            "description": "A dusty old book",
+                            "value": 50
+                        }
+                    ],
+                    "type": "GameObject"
+                }
+            ],
+            "creatures": [
+                {
+                    "name": "Goblin",
+                    "description": "A small green creature.",
+                    "health": 30
+                }
+            ]
+        }
+    ],
+    "player": {
+        "name": "Claus",
+        "current_room": "room1",
+        "inventory": {
+            "items": [
+                {
+                    "name": "Potion",
+                    "description": "A healing potion.",
+                    "value": "50"
+                }
+            ]
+        },
+        "equipment": {}
+    }
+}
