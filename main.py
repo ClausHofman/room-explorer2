@@ -1,6 +1,6 @@
 from game.player import Player
 from game.inventory import Item
-from game.managers import RoomManager, SaveLoadManager
+from game.managers import RoomManager, SaveLoadManager, EventManager, spawn_creature
 from game.equipment import Equipment
 from game.room import Room, GameObject
 from game.creatures import Creature
@@ -50,17 +50,33 @@ room_manager.game_rooms = rooms
 print(room_manager.game_rooms)
 print(room_manager.room_lookup)
 
+
 # print(player.current_room.room_id)
 # print(player.equipment)
 # print(player.inventory)
 
 # Check the results
-# for room in rooms:
-#     print(room.name, room.description)  # Living Room A cozy room with a fireplace.
-#     for obj in room.objects:
-#         print(f"{obj.name}: {obj.description}")
-#         for item in obj.inventory:
-#             print(f"  - {item.name}: {item.description}")
-#     for creature in room.creatures:
-#         print(f"{creature.name}: {creature.description}")
+for room in rooms:
+    print(room.name, room.description)  # Living Room A cozy room with a fireplace.
+    for obj in room.objects:
+        print(f"{obj.name}: {obj.description}")
+        for item in obj.inventory:
+            print(f"  - {item.name}: {item.description}")
 # print(room_manager.game_rooms)
+
+# --- Spawn a new creature ---
+# First, let's create a new room to spawn it in (you can use existing rooms too)
+new_room = Room("Forest Edge", "The edge of a dark forest.")
+room_manager.add_room(new_room)
+print("added new room")
+# Now, let's spawn a creature in the new room
+creature_data = {
+    "creature_name": "Wolf",
+    "creature_description": "A large, grey wolf.",
+    "room_name": "Forest Edge",  # Make sure this matches a room name
+    "creature_health": 75,
+}
+spawn_creature(Creature, creature_data, room_manager)
+# Let's verify that the creature is in the room
+for room in room_manager.game_rooms:
+    room.list_creatures()

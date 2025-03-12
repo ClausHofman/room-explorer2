@@ -1,6 +1,7 @@
 import game.room
 import game.player
 import json
+import game.creatures as Creature
 
 class EquipmentManager:
     def __init__(self):
@@ -84,6 +85,60 @@ class SaveLoadManager:
 
         return player, rooms
 
+class EventManager:
+    def __init__(self):
+        self.handlers = {}
+
+    def add_listener(self, event_type, listener):
+        """Add a listener to a specific event type."""
+        if event_type not in self.handlers:
+            self.handlers[event_type] = []
+        self.handlers[event_type].append(listener)
+
+    def remove_listener(self, event_type, listener):
+        """Remove a listener from a specific event type."""
+        if event_type in self.handlers:
+            self.handlers[event_type].remove(listener)
+
+    def add_event(self, event_type, data=None):
+        """Add an event to be handled by listeners."""
+        if event_type in self.handlers:
+            for handler in self.handlers[event_type]:
+                handler(event_type, data)
+
+
+def spawn_creature(creature_class, data, room_manager):
+    print(f"Creature class being used: {creature_class}")
+
+    creature_name = data.get("creature_name")
+    creature_description = data.get("creature_description")
+    room_name = data.get("room_name")
+    creature_health = data.get("creature_health")
+
+    if not all(data.get(key) for key in ["creature_name", "creature_description", "room_name", "creature_health"]):
+        print("Error: Missing data for creature spawn.")
+        print(f"Data provided: {data}")
+        return
+
+    print(f"Spawning creature with data: {data}")
+    print(f"Number of rooms in room_manager: {len(room_manager.game_rooms)}")
+    print(room_manager.room_lookup)
+
+    # Find the room where the creature should be added
+    for room in room_manager.game_rooms:
+        print(f"Available room name: '{room.name}'")
+        if room.name == room_name:
+            # Create a new creature instance
+            new_creature = creature_class(creature_name, creature_description, creature_health)
+            print(new_creature.to_dict())
+            # Add the creature to the room
+            room.add_creature(new_creature)
+            print(f"Spawned {creature_name} in {room_name}.")
+            return
+
+    print(f"Room '{room_name}' not found.")
+
+    
 
 
     # @staticmethod

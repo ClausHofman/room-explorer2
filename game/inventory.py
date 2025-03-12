@@ -1,4 +1,3 @@
-from game.room import GameObject
 
 class Inventory:
     def __init__(self):
