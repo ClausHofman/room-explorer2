@@ -1,7 +1,7 @@
 import game.room
 import game.player
 import json
-import game.creatures as Creature
+# import game.creatures as Creature
 
 class EquipmentManager:
     def __init__(self):
@@ -85,26 +85,27 @@ class SaveLoadManager:
 
         return player, rooms
 
-class EventManager:
-    def __init__(self):
-        self.handlers = {}
+# Maybe fiddle with this later
+# class EventManager:
+#     def __init__(self):
+#         self.handlers = {}
 
-    def add_listener(self, event_type, listener):
-        """Add a listener to a specific event type."""
-        if event_type not in self.handlers:
-            self.handlers[event_type] = []
-        self.handlers[event_type].append(listener)
+#     def add_listener(self, event_type, listener):
+#         """Add a listener to a specific event type."""
+#         if event_type not in self.handlers:
+#             self.handlers[event_type] = []
+#         self.handlers[event_type].append(listener)
 
-    def remove_listener(self, event_type, listener):
-        """Remove a listener from a specific event type."""
-        if event_type in self.handlers:
-            self.handlers[event_type].remove(listener)
+#     def remove_listener(self, event_type, listener):
+#         """Remove a listener from a specific event type."""
+#         if event_type in self.handlers:
+#             self.handlers[event_type].remove(listener)
 
-    def add_event(self, event_type, data=None):
-        """Add an event to be handled by listeners."""
-        if event_type in self.handlers:
-            for handler in self.handlers[event_type]:
-                handler(event_type, data)
+#     def add_event(self, event_type, data=None):
+#         """Add an event to be handled by listeners."""
+#         if event_type in self.handlers:
+#             for handler in self.handlers[event_type]:
+#                 handler(event_type, data)
 
 
 def spawn_creature(creature_class, data, room_manager):
@@ -137,33 +138,3 @@ def spawn_creature(creature_class, data, room_manager):
             return
 
     print(f"Room '{room_name}' not found.")
-
-    
-
-
-    # @staticmethod
-    # def save_game(player, room_manager, filepath="serialization/test1.json"):
-    #     # Get all rooms from the RoomManager and serialize them
-    #     rooms = room_manager.game_rooms
-    #     try:
-    #         with open(filepath, "w") as file:
-    #             json.dump([room.to_dict() for room in rooms], file, indent=4)
-    #     except IOError as e:
-    #        print(f"Error saving rooms: {e}")
-    #     print(f"Rooms saved to {filepath}")
-
-    # @staticmethod
-    # def load_rooms(filepath="serialization/test1.json"):
-    #     try:
-    #         with open(filepath, "r") as file:
-    #             room_data = json.load(file)
-    #     except IOError as e:
-    #         print(f"Error loading rooms: {e}")
-    #     except json.JSONDecodeError as e:
-    #         print(f"Invalid JSON format: {e}")
-            
-    #     # Reset room count before deserialization
-    #     game.room.Room.room_count = -1
-    #     # Deserialize rooms
-    #     rooms = [game.room.Room.from_dict(data) for data in room_data]
-    #     return rooms

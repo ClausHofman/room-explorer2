@@ -1,6 +1,6 @@
 from game.player import Player
 from game.inventory import Item
-from game.managers import RoomManager, SaveLoadManager, EventManager, spawn_creature
+from game.managers import RoomManager, SaveLoadManager, spawn_creature
 from game.equipment import Equipment
 from game.room import Room, GameObject
 from game.creatures import Creature
