@@ -164,3 +164,5 @@ cython_debug/
 
 *.sh
 *.txt
+serialization/
+analyze_function_names.py

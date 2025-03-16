@@ -4,6 +4,7 @@ from game.managers import RoomManager, SaveLoadManager, spawn_creature
 from game.equipment import Equipment
 from game.room import Room, GameObject
 from game.creatures import Creature
+import logging
 
 room_manager = RoomManager()
 
@@ -29,54 +30,49 @@ player = Player("Claus", starting_room, room_manager)
 #     print(room.to_dict())  # Ensure all rooms are serializable
 
 # Moving between rooms
-player.move("north")
-room2.list_creatures()
+# player.move("north")
+# room2.list_creatures()
 
 # Managing inventory
 potion = Item("Potion", "A healing potion.", "50")
 player.inventory.add_item(potion)
-player.inventory.display()
+# player.inventory.display()
 
 # Equipping items
 sword = Equipment("A gleaming sword", "hand")
 player.equipment.equip_item(sword)
-player.equipment.list_equipment()
+# player.equipment.list_equipment()
 
-
+# SAVE
 SaveLoadManager.save_game(player, room_manager)
+
+# LOAD
 player, rooms = SaveLoadManager.load_game()
-# Update the room manager with the loaded rooms
-room_manager.game_rooms = rooms
-print(room_manager.game_rooms)
-print(room_manager.room_lookup)
+room_manager.game_rooms = rooms # Update the room manager with the loaded rooms
 
-
+# print(room_manager.room_lookup)
+# print(room_manager.game_rooms)
 # print(player.current_room.room_id)
 # print(player.equipment)
 # print(player.inventory)
-
-# Check the results
-for room in rooms:
-    print(room.name, room.description)  # Living Room A cozy room with a fireplace.
-    for obj in room.objects:
-        print(f"{obj.name}: {obj.description}")
-        for item in obj.inventory:
-            print(f"  - {item.name}: {item.description}")
-# print(room_manager.game_rooms)
+# for room in rooms:
+#     print(room.name, room.description)
+#     for obj in room.objects:
+#         print(f"{obj.name}: {obj.description}")
+#         for item in obj.inventory:
+#             print(f"  - {item.name}: {item.description}")
 
 # --- Spawn a new creature ---
-# First, let's create a new room to spawn it in (you can use existing rooms too)
 new_room = Room("Forest Edge", "The edge of a dark forest.")
 room_manager.add_room(new_room)
-print("added new room")
-# Now, let's spawn a creature in the new room
 creature_data = {
     "creature_name": "Wolf",
     "creature_description": "A large, grey wolf.",
     "room_name": "Forest Edge",  # Make sure this matches a room name
     "creature_health": 75,
 }
+
 spawn_creature(Creature, creature_data, room_manager)
 # Let's verify that the creature is in the room
-for room in room_manager.game_rooms:
-    room.list_creatures()
+# for room in room_manager.game_rooms:
+#     room.list_creatures()

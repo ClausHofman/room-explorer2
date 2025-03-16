@@ -5,7 +5,7 @@ class Inventory:
 
     def add_item(self, item):
         self.items.append(item)
-        print(f"{item.name} added to your inventory.")
+        # print(f"{item.name} added to your inventory.")
 
     def remove_item(self, item_name):
         for item in self.items:

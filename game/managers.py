@@ -3,6 +3,7 @@ import game.player
 import json
 # import game.creatures as Creature
 
+
 class EquipmentManager:
     def __init__(self):
         self.equipment = {}
@@ -16,7 +17,7 @@ class EquipmentManager:
             print(f"You are already wielding {self.equipment[slot].name}.")
             return False
         self.equipment[slot] = item
-        print(f"You wield {item.name}.")
+        # print(f"You wield {item.name}.")
         return True
 
     def unequip_item(self, slot_name):
@@ -109,7 +110,7 @@ class SaveLoadManager:
 
 
 def spawn_creature(creature_class, data, room_manager):
-    print(f"Creature class being used: {creature_class}")
+    # print(f"Creature class being used: {creature_class}")
 
     creature_name = data.get("creature_name")
     creature_description = data.get("creature_description")
@@ -122,16 +123,15 @@ def spawn_creature(creature_class, data, room_manager):
         return
 
     print(f"Spawning creature with data: {data}")
-    print(f"Number of rooms in room_manager: {len(room_manager.game_rooms)}")
-    print(room_manager.room_lookup)
+    # print(f"Number of rooms in room_manager: {len(room_manager.game_rooms)}")
+    # print(room_manager.room_lookup)
 
     # Find the room where the creature should be added
     for room in room_manager.game_rooms:
-        print(f"Available room name: '{room.name}'")
         if room.name == room_name:
             # Create a new creature instance
             new_creature = creature_class(creature_name, creature_description, creature_health)
-            print(new_creature.to_dict())
+            # print(new_creature.to_dict())
             # Add the creature to the room
             room.add_creature(new_creature)
             print(f"Spawned {creature_name} in {room_name}.")

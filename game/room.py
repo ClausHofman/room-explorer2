@@ -37,7 +37,7 @@ class Room:
         self.creatures = []
         self.exits = {}
 
-        print(f"Created room: {self.room_id}")
+        # print(f"Created room: {self.room_id}")
 
     def connect(self, direction, neighbor_room):
         if direction in self.available_directions():
