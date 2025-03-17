@@ -166,3 +166,4 @@ cython_debug/
 *.txt
 serialization/
 analyze_function_names.py
+analyze_funcs_single_file.py
