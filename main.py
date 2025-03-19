@@ -3,6 +3,7 @@ sys.path.append(f'{os.getcwd()}\game')
 from game.combatants import *
 from game.combatant_data import *
 from game.room import Room
+from game.helper_functions import *
 
 # Example usage
 selected_traits_for_dragon = ["flight", "fire_resistance"]

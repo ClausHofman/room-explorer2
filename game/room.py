@@ -1,6 +1,7 @@
 import random
 from combatants import *
 from combatant_data import *
+from helper_functions import *
 
 class Room:
     room_count = 0
