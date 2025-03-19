@@ -1,8 +1,42 @@
-import time
-import threading
-import logging
-import json
-from rooms import Room
+import json, threading, copy, time
+
+
+class SaveLoadManager:
+    @staticmethod
+    def save_to_file(filename, turn_manager):
+        try:
+            with open(filename, "w") as file:
+                json.dump(turn_manager.to_dict(), file, indent=4)
+            print(f"[DEBUG] Successfully saved TurnManager to {filename}")
+        except Exception as e:
+            print(f"[ERROR] Failed to save game: {e}")
+
+    @staticmethod
+    def load_from_file(filename, **kwargs):
+        try:
+            # Load the primary save file
+            with open(f"{filename}", "r") as file:
+                data = json.load(file)
+            print(f"[DEBUG] Successfully loaded TurnManager from {filename}")
+            
+            # Inject optional dictionaries from **kwargs into the game memory
+           
+            optional_data = {}
+            if optional_data:
+                for key, filepath in kwargs.items():
+                    try:
+                        with open(filepath, "r") as optional_file:
+                            loaded_data = json.load(optional_file)
+                            # Assign the entire content of the file or its specific key to optional_data
+                            optional_data[key] = loaded_data.get(key, loaded_data)
+                        print(f"[DEBUG] Successfully loaded additional data: {key} from {filepath}")
+                    except Exception as e:
+                        print(f"[WARNING] Failed to load optional file {key}: {e}")
+
+            return TurnManager.from_dict(data), optional_data
+        except Exception as e:
+            print(f"[ERROR] Failed to load game: {e}")
+            return None, None
 
 
 class RoomManager:
@@ -79,6 +113,7 @@ class RoomManager:
 
     @classmethod
     def from_dict(cls, data):
+        from room import Room
         room_manager = cls()
         if "game_rooms" in data:
             room_manager.game_rooms = [Room.from_dict(room_data) for room_data in data["game_rooms"]]
@@ -120,6 +155,7 @@ class TurnManager:
         self.running = False  # Stop the timer thread gracefully
 
     def to_dict(self):
+        from room import Room
         return {
             "current_turn": self.current_turn,
             "room_manager": self.room_manager.to_dict(),  # Serialize the RoomManager
@@ -128,6 +164,7 @@ class TurnManager:
 
     @classmethod
     def from_dict(cls, data):
+        from room import Room
         Room.room_count = 0 # Reset room_count when loading
         turn_manager = cls()
         if "room_manager" in data:
@@ -138,6 +175,100 @@ class TurnManager:
             print("[WARNING] 'current_turn' key missing in save file data!")
         return turn_manager
 
+
+class CombatantManager:
+    def __init__(self, traits_dict, status_effects, selected_traits=None):
+        """
+        :param traits_dict: A dictionary of all possible traits.
+        :param status_effects: A dictionary of all status effects.
+        :param selected_traits: A list of keys to select specific traits from traits_dict.
+        """
+        self.all_traits = traits_dict
+        self.selected_traits = {key: traits_dict[key] for key in (selected_traits or [])}
+        self.buffs = copy.deepcopy(status_effects.get("buffs", {}))
+        self.debuffs = copy.deepcopy(status_effects.get("debuffs", {}))
+        self.current_power = 0  # Example power tracking
+
+    # Resolves active effects based on non-zero durations
+    def get_active_effects(self, effects):
+        active_effects = [
+            f"{key} (Duration: {value[0]}, Strength: {value[1]})"
+            for key, value in effects.items()
+            if value[0] > 0  # Only include active effects with duration > 0
+        ]
+        return ", ".join(active_effects) if active_effects else "None"
+
+    # Trait-related methods
+    def describe_traits(self):
+        if not self.selected_traits:
+            return "No special traits."
+        return ", ".join([f"{key}: {value}" for key, value in self.selected_traits.items()])
+
+    # Buff-related methods
+    def add_buff(self, buff_key, duration, strength):
+        if buff_key in self.buffs:
+            self.buffs[buff_key][0] += duration
+            self.buffs[buff_key][1] += strength
+        else:
+            self.buffs[buff_key] = [duration, strength]
+        self.current_power += strength
+        print(f"Buff '{buff_key}' added (Duration: {duration}, Strength: {strength}). Current power: {self.current_power}.")
+
+    def remove_buff(self, buff_key):
+        if buff_key in self.buffs:
+            strength_to_remove = self.buffs[buff_key][1]
+            self.current_power -= strength_to_remove
+            del self.buffs[buff_key]
+            print(f"Buff '{buff_key}' removed. Current power: {self.current_power}.")
+        else:
+            print(f"Buff '{buff_key}' does not exist.")
+
+    def decrement_buff_durations(self):
+        for buff_key in list(self.buffs.keys()):
+            if self.buffs[buff_key][0] > 0:
+                self.buffs[buff_key][0] -= 1
+                if self.buffs[buff_key][0] <= 0:
+                    self.remove_buff(buff_key)
+
+    # Debuff-related methods
+    def add_debuff(self, debuff_key, duration, strength):
+        if debuff_key in self.debuffs:
+            self.debuffs[debuff_key][0] += duration
+            self.debuffs[debuff_key][1] += strength
+        else:
+            self.debuffs[debuff_key] = [duration, strength]
+        print(f"Debuff '{debuff_key}' added (Duration: {duration}, Strength: {strength}).")
+
+    def remove_debuff(self, debuff_key):
+        if debuff_key in self.debuffs:
+            del self.debuffs[debuff_key]
+            print(f"Debuff '{debuff_key}' removed.")
+        else:
+            print(f"Debuff '{debuff_key}' does not exist.")
+
+    def decrement_debuff_durations(self):
+        for debuff_key in list(self.debuffs.keys()):
+            if self.debuffs[debuff_key][0] > 0:
+                self.debuffs[debuff_key][0] -= 1
+                if self.debuffs[debuff_key][0] <= 0:
+                    self.remove_debuff(debuff_key)
+
+    # Describe active buffs and debuffs
+    def describe_status(self):
+        buffs_desc = self.get_active_effects(self.buffs)
+        debuffs_desc = self.get_active_effects(self.debuffs)
+        return f"Buffs: {buffs_desc}\nDebuffs: {debuffs_desc}"
+
+
+class SaveLoadManager:
+    @staticmethod
+    def save_to_file(filename, turn_manager):
+        try:
+            with open(filename, "w") as file:
+                json.dump(turn_manager.to_dict(), file, indent=4)
+            print(f"[DEBUG] Successfully saved TurnManager to {filename}")
+        except Exception as e:
+            print(f"[ERROR] Failed to save game: {e}")
 
 class SaveLoadManager:
     @staticmethod
@@ -158,18 +289,21 @@ class SaveLoadManager:
             print(f"[DEBUG] Successfully loaded TurnManager from {filename}")
             
             # Inject optional dictionaries from **kwargs into the game memory
+           
             optional_data = {}
-            for key, filepath in kwargs.items():
-                try:
-                    with open(filepath, "r") as optional_file:
-                        loaded_data = json.load(optional_file)
-                        # Assign the entire content of the file or its specific key to optional_data
-                        optional_data[key] = loaded_data.get(key, loaded_data)
-                    print(f"[DEBUG] Successfully loaded additional data: {key} from {filepath}")
-                except Exception as e:
-                    print(f"[WARNING] Failed to load optional file {key}: {e}")
+            if optional_data:
+                for key, filepath in kwargs.items():
+                    try:
+                        with open(filepath, "r") as optional_file:
+                            loaded_data = json.load(optional_file)
+                            # Assign the entire content of the file or its specific key to optional_data
+                            optional_data[key] = loaded_data.get(key, loaded_data)
+                        print(f"[DEBUG] Successfully loaded additional data: {key} from {filepath}")
+                    except Exception as e:
+                        print(f"[WARNING] Failed to load optional file {key}: {e}")
 
-            return TurnManager.from_dict(data), optional_data
+            return TurnManager.from_dict(data)
         except Exception as e:
             print(f"[ERROR] Failed to load game: {e}")
             return None, None
+

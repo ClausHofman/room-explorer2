@@ -1,7 +1,6 @@
-import logging
 import random
-from combatants import Monster, Player, Companion
-from combatant_data import monsters_data, player_data, companions_data
+from combatants import *
+from combatant_data import *
 
 class Room:
     room_count = 0
@@ -158,7 +157,7 @@ class Room:
                     continue
 
                 # Attack logic
-                damage = max(combatant.attack - target.defense, 1)
+                damage = max(combatant.stats["attack"] - target.stats["defense"], 1)
                 print(f"{combatant.name} attacks {target.name} for {damage} damage!")
                 target.take_damage(damage)
 
@@ -198,7 +197,7 @@ class Room:
                     continue
 
                 # Attack logic
-                damage = max(combatant.attack - target.defense, 1)
+                damage = max(combatant.stats["attack"] - target.stats["defense"], 1)
                 print(f"{combatant.name} attacks {target.name} for {damage} damage!")
                 target.take_damage(damage)
 
@@ -223,14 +222,14 @@ class Room:
         self.update_grudges(combatant)
 
 
-    def detect_hostility(self):
+    def detect_hostility(self, turn_manager):
         print("[DEBUG] Detecting hostility...")
         for combatant in self.combatants:
             if combatant.is_alive():
                 # Hates everyone
                 if combatant.hates_all:
                     for other in self.combatants:
-                        if other.id != combatant.id and other.is_alive():
+                        if other.id != combatant.id and other.is_alive() and other.name != combatant.name:
                             combatant.add_to_grudge_list(other.id)
                             other.add_to_grudge_list(combatant.id)
                 # Hates player and companions
@@ -247,9 +246,14 @@ class Room:
                             other.add_to_grudge_list(combatant.id)
 
         print("[DEBUG] Hostility detection complete.")
+
         # Debugging: Print combatants and their grudges
+        temp = []
         for c in self.combatants:
             print(f"[DEBUG] {c.name} grudges: {c.grudge_list}")
+            temp += c.grudge_list
+            if len(temp) > 0:
+                self.start_combat(turn_manager.current_turn)
 
 
     def has_hostility(self):
@@ -273,7 +277,7 @@ class Room:
                     
                     if target:
                         # Debug: Print details of the alive target
-                        print(f"[DEBUG has_hostility] Hostility detected! {combatant.name} has a valid target: {target.name} (ID: {target.id}, Health: {target.health})")
+                        print(f"[DEBUG has_hostility] Hostility detected! {combatant.name} has a valid target: {target.name} (ID: {target.id}, Health: {target.stats['health']})")
                         return True
                     else:
                         # Debug: The target is either not found or not alive
@@ -321,7 +325,7 @@ class Room:
 
     def end_combat(self):
         self.in_combat = False
-        self.combat_start_turn = None
+        self.combat_start_turn = 0
         self.combat_rounds = 0
         print(f"Combat ends in Room {self.room_id}.")
 
@@ -347,12 +351,13 @@ class Room:
         if not any(c.is_alive() for c in self.combatants if c.id.startswith("player")):
             print("[DEBUG] The player has been defeated! Game Over.")
             return True
-        if not any(c.is_alive() for c in self.combatants if c.id.startswith("monster")):
+        if not any(c.is_alive() for c in self.combatants if c.id.startswith("player")):
             print("[DEBUG] All monsters are defeated! Combat ends.")
             return True
         return False
     
     def trigger_reinforcements(self):
+        from combatants import Monster
         reinforcement_data = {
             "name": "Reinforcement Goblin",
             "health": 50,
@@ -366,8 +371,26 @@ class Room:
         print(f"[DEBUG] Reinforcements arrived! {new_goblin.name} joins the battle.")
         self.add_new_combatant(new_goblin)
 
-    def spawn_monsters(self, monster_ids):
-        for monster_id in monster_ids:
-            if monster_id in monsters_data:
-                monster = Monster(monster_id, monsters_data[monster_id])
-                self.add_combatant(monster)
+    def spawn_monsters(self, monster_types):
+        """
+        Spawns monsters based on the given monster_types.
+        :param monster_types: Either a string (single monster type) or a list of strings (multiple monster types).
+        """
+        # Ensure monster_types is always treated as a list, even if it's a single string
+        if isinstance(monster_types, str):
+            monster_types = [monster_types]
+
+        # Iterate over the list of monster types and spawn each monster
+        for monster_type in monster_types:
+            if monster_type not in creature_data.keys():
+                raise ValueError(f"Creature type '{monster_type}' does not exist in creature_data.")
+            
+            # Create and add the monster to combatants
+            monster = create_creature(
+                creature_type=monster_type,
+                creature_data=creature_data,
+                creature_traits=creature_traits_data,
+                status_data=creature_status_data,
+                # selected_traits=selected_traits_for_dragon # Would need to use default traits or maybe random ones
+            )
+            self.add_combatant(monster)
