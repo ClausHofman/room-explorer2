@@ -5,11 +5,11 @@ companion_data = {
     "attack": 50,
     "defense": 30,
     "name": "Companion A",
-        "hates_all": False,
-        "hates_player_and_companions": False,
-        "hates": [],
-        "monster_type": "companion",
-        "has_traits": {}
+    "hates_all": False,
+    "hates_player_and_companions": False,
+    "hates": [],
+    "monster_type": "companion",
+    "has_traits": {}
     }
 }
 

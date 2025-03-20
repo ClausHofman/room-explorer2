@@ -4,6 +4,7 @@ from game.combatants import *
 from game.combatant_data import *
 from game.room import Room
 from game.helper_functions import *
+from game.managers import *
 
 # Example usage
 selected_traits_for_dragon = ["flight", "fire_resistance"]
@@ -45,14 +46,17 @@ room2.connect(room1, "south")
 turn_manager.start_timer(interval_seconds=3)
 
 room1.add_combatant(player)
+print(player.current_room)
+
+
 room1.add_combatant(companion1)
 room1.add_combatant(dragon1)
 room1.spawn_monsters(["dragon", "dragon"])
-room1.detect_hostility(turn_manager)
+# room1.detect_hostility(turn_manager)
 # dragon1.combatant_manager.add_buff("strength_boost", 5, 10)
 room2.spawn_monsters("dragon")
 room2.spawn_monsters(["goblin", "wolf", "wolf", "wolf", "wolf", "rabbit"])
-room2.detect_hostility(turn_manager)
+# room2.detect_hostility(turn_manager)
 
 
 # pprint(dir(player))
@@ -60,20 +64,22 @@ room2.detect_hostility(turn_manager)
 # pprint(vars(player))
 # print(player.stats["health"])
 
+# SAVE AND LOAD
 SaveLoadManager.save_to_file("serialization/save_game.json", turn_manager)
 
-print(RoomManager)  # Should display <class 'RoomManager'>
-print(hasattr(RoomManager, "from_dict"))  # Should display True
+# print(RoomManager)  # Should display <class 'RoomManager'>
+# print(hasattr(RoomManager, "from_dict"))  # Should display True
 
 
 room_manager = None
 turn_manager = None
-# Load the game and optional data
+# # Load the game and optional data
 turn_manager = SaveLoadManager.load_from_file(
-    "serialization/save_game.json"
-)
+    "serialization/save_game.json")
 
-print((turn_manager))
+print(player.current_room)
+
+# print((turn_manager))
 
 
 # dragon1.combatant_manager.decrement_buff_durations()

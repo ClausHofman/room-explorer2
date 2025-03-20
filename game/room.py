@@ -1,7 +1,4 @@
 import random
-from combatants import *
-from combatant_data import *
-from helper_functions import *
 
 class Room:
     room_count = 0
@@ -18,9 +15,9 @@ class Room:
         self.combat_start_turn = None
         self.combat_rounds = combat_rounds
         self.combatants = []  # Holds Player, Companion, and Monster objects
-        self.entities = []  # Could be used for other objects in the future
+        self.entities = []  # Not in use, could be used for other objects in the future
         self.room_exits = {}
-        self.room_manager = None # For room objects to directly interact with RoomManager
+        
 
     def to_dict(self):
         room_dict = {
@@ -214,6 +211,7 @@ class Room:
             print(f"[DEBUG] Combatant {combatant.name} (ID: {combatant.id}) is already in the room. Skipping addition.")
             return
         print(f"[DEBUG] Adding combatant: {combatant.name} (ID: {combatant.id})")
+        combatant.current_room = self.room_id
         self.combatants.append(combatant)
 
 
@@ -253,8 +251,8 @@ class Room:
         for c in self.combatants:
             print(f"[DEBUG] {c.name} grudges: {c.grudge_list}")
             temp += c.grudge_list
-            if len(temp) > 0:
-                self.start_combat(turn_manager.current_turn)
+        if temp:
+            self.start_combat(turn_manager.current_turn)
 
 
     def has_hostility(self):
@@ -373,6 +371,8 @@ class Room:
         self.add_new_combatant(new_goblin)
 
     def spawn_monsters(self, monster_types):
+        from helper_functions import create_creature
+        from combatant_data import creature_data, creature_traits_data, creature_status_data
         """
         Spawns monsters based on the given monster_types.
         :param monster_types: Either a string (single monster type) or a list of strings (multiple monster types).

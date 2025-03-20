@@ -1,6 +1,5 @@
 import uuid, json, random, threading, time, copy
-import room as room_module
-from managers import *
+
 
 
 class Combatant:
@@ -86,8 +85,9 @@ class Combatant:
 
 
 class Player(Combatant):
-    def __init__(self, combatant_id, name, stats, hates_all, hates_player_and_companions, hates, monster_type, has_traits, all_creature_traits_data, status_data, selected_traits=None):
+    def __init__(self, combatant_id, name, stats, hates_all, hates_player_and_companions, hates, monster_type, has_traits, all_creature_traits_data, status_data, current_room=None, selected_traits=None):
         super().__init__(combatant_id, name, stats, hates_all, hates_player_and_companions, hates, monster_type)
+        from managers import CombatantManager
         self.has_traits = has_traits
         self.combatant_manager = CombatantManager(
             traits_dict=all_creature_traits_data,
@@ -95,6 +95,7 @@ class Player(Combatant):
             selected_traits=selected_traits)
         self.inventory = ("inventory", [])
         self.equipment = ("equipment", {})
+        self.current_room = current_room
 
     # Serialization method
     def to_dict(self):
@@ -102,6 +103,7 @@ class Player(Combatant):
         base.update({
             "inventory": self.inventory,
             "equipment": self.equipment,
+            "current_room": self.current_room
         })
         return base
 
@@ -131,21 +133,24 @@ class Player(Combatant):
             has_traits=data.get("has_traits", {}),
             all_creature_traits_data=data.get("all_creature_traits_data", {}),
             status_data=status_data,  # Pass status_effect
-            selected_traits=data.get("selected_traits", None)
+            selected_traits=data.get("selected_traits", None),
+            current_room=data.get("current_room", None)
         )
 
 
 
 class Companion(Combatant):
-    def __init__(self, combatant_id, name, stats, hates_all, hates_player_and_companions, hates, monster_type, has_traits, all_creature_traits_data, status_data, selected_traits=None):
+    def __init__(self, combatant_id, name, stats, hates_all, hates_player_and_companions, hates, monster_type, has_traits, all_creature_traits_data, status_data, current_room=None, selected_traits=None):
         super().__init__(combatant_id, name, stats, hates_all, hates_player_and_companions, hates, monster_type)
         self.has_traits = has_traits
+        from managers import CombatantManager
         self.combatant_manager = CombatantManager(
             traits_dict=all_creature_traits_data,
             status_effects=status_data["status_effect"],
             selected_traits=selected_traits)
         self.inventory =("inventory", [])
         self.equipment =("equipment", {})
+        self.current_room = current_room
 
     # Serialization method
     def to_dict(self):
@@ -153,6 +158,7 @@ class Companion(Combatant):
         base.update({
             "inventory": self.inventory,
             "equipment": self.equipment,
+            "current_room": self.current_room,
         })
         return base
 
@@ -181,12 +187,13 @@ class Companion(Combatant):
             has_traits=data.get("has_traits", {}),
             all_creature_traits_data=data.get("all_creature_traits_data", {}),
             status_data=status_data,
-            selected_traits=data.get("selected_traits", None)
+            selected_traits=data.get("selected_traits", None),
+            current_room = data.get("current_room", None)
         )
 
 
 class Monster(Combatant):
-    def __init__(self, combatant_id, name, stats, hates_all, hates_player_and_companions, hates, monster_type, has_traits, all_creature_traits_data, status_data, selected_traits=None):
+    def __init__(self, combatant_id, name, stats, hates_all, hates_player_and_companions, hates, monster_type, has_traits, all_creature_traits_data, status_data, current_room=None, selected_traits=None):
         """
         :param combatant_id: Unique ID for the combatant.
         :param name: Name of the monster.
@@ -202,6 +209,8 @@ class Monster(Combatant):
         """
         super().__init__(combatant_id, name, stats, hates_all, hates_player_and_companions, hates, monster_type)
         self.has_traits = has_traits
+        self.current_room = current_room
+        from managers import CombatantManager
         self.combatant_manager = CombatantManager(
             traits_dict=all_creature_traits_data,
             status_effects=status_data,
@@ -237,6 +246,7 @@ class Monster(Combatant):
             "name": self.name,
             "stats": self.stats,
             "has_traits": {key: value for key, value in self.has_traits.items()},
+            "current_room": self.current_room
         })
         return base
 
@@ -263,7 +273,8 @@ class Monster(Combatant):
             has_traits=data.get("has_traits", {}),
             all_creature_traits_data=data.get("all_creature_traits_data", {}),
             status_data=status_data,
-            selected_traits=data.get("selected_traits", None)
+            selected_traits=data.get("selected_traits", None),
+            current_room=data.get("current_room", None)
         )
 
 

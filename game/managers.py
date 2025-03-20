@@ -217,7 +217,7 @@ class CombatantManager:
     def remove_buff(self, buff_key):
         if buff_key in self.buffs:
             strength_to_remove = self.buffs[buff_key][1]
-            self.current_power -= strength_to_remove
+            self.current_power = max(0, self.current_power - strength_to_remove)
             del self.buffs[buff_key]
             print(f"Buff '{buff_key}' removed. Current power: {self.current_power}.")
         else:

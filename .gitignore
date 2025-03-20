@@ -167,3 +167,5 @@ cython_debug/
 serialization/
 analyze_function_names.py
 analyze_funcs_single_file.py
+
+old_tests/
