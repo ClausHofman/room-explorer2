@@ -1,6 +1,6 @@
 import unittest
 import copy
-from managers import CombatantManager
+from game.managers import CombatantManager
 
 # python -m unittest discover -s tests -v
 

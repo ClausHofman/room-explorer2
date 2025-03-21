@@ -3,7 +3,7 @@ import json, threading, copy, time
 
 
 class MovementManager:
-    def __init__(self, room_manager, player):
+    def __init__(self, room_manager=None, player=None):
         self.room_manager = room_manager
         self.player = player
 
@@ -18,10 +18,18 @@ class MovementManager:
 
         # Update player's current room
         target_room_id = current_room.room_exits[direction]
-        player.current_room = target_room_id
-        print(f"You move from {current_room.room_name} to {self.room_manager.room_lookup[target_room_id].room_name} in the {direction}.")
+        target_room = self.room_manager.room_lookup[target_room_id]
+
+        # Remove player from current room
+        current_room.remove_combatant_by_id(player.id)
+
+        # Add player to target room
+        target_room.add_combatant(player)
+
+        print(f"You move from {current_room.room_name} to {target_room.room_name} in the {direction}.")
 
         return True
+
 
     def move_entity_command(self, direction, player):
         """Handle the move command for the player."""
@@ -36,81 +44,29 @@ class MovementManager:
         else:
             print("You must specify a direction to move (e.g., 'move north').")
 
+    def to_dict(self):
+        """Convert MovementManager to a dictionary."""
+        room_manager_id = None
+        if self.room_manager and self.player and self.player.current_room in self.room_manager.room_lookup:
+            room_manager_id = self.room_manager.room_lookup[self.player.current_room].room_id
+        return {
+            "room_manager_id": room_manager_id,
+            "player_id": self.player.id if self.player else None,
+        }
 
-    # def move_entity(self, entity, direction):
-    #     """Handles moving an entity to another room."""
-    #     initial_room = self.room_manager.room_lookup[f"{entity.current_room}"]
-    #     print(initial_room.room_exits.keys())
-    #     if direction in initial_room.room_exits.keys():
-    #         entity.current_room = self.room_manager.room_lookup[f"{entity.current_room}"].room_exits[f"{direction}"]
+    @classmethod
+    def from_dict(cls, data, room_manager, player):
+        """Create a MovementManager from a dictionary."""
+        movement_manager = cls(room_manager=room_manager, player=player)
 
-    #     if direction not in initial_room.room_exits.keys():
-    #         print(f"{entity.name} cannot move to {direction}. No path exists.")
-    #         return False
+        # Restore the player's current_room if possible
+        if data.get("room_manager_id") and room_manager and player: # ADDED PLAYER
+            if data["room_manager_id"] in room_manager.room_lookup:
+                player.current_room = data["room_manager_id"]
+            else:
+                print(f"[WARNING] Room with ID '{data['room_manager_id']}' not found in RoomManager. Player's current_room not restored.")
 
-    #     # Handle movement logic
-    #     print(f"{entity.name} moves from {initial_room.room_id} to {entity.current_room} in the {direction}.")
-        
-    # def validate_move(self, current_room, direction):
-    #     """Validate if a move in the given direction is possible."""
-    #     return direction in current_room.room_exits
-
-
-    # def move(self, direction):
-    #     # global current_player_room  # Access the global variable
-    #     if direction in self.current_room.exits:
-    #         self.current_room = self.current_room.exits[direction]
-    #         current_player_room = self.current_room
-    #         print("MOVING, CURRENT PLAYER ROOM: ", current_player_room)
-    #         room.update_current_player_room(self.current_room)
-    #         print("\nCURRENT ROOM EXITS:", self.current_room.exits.keys())
-    #         print(f"You moved {direction} to {self.current_room.name}.")
-    #         print(self.current_room.description)
-
-    #         if self.room_manager.current_room.combatants:
-    #             for creature in self.current_room.combatants:
-    #                 print(f"Combatants in room: {creature.name}")
-    #     else:
-    #         print("You can't go that way.")
-
-
-class SaveLoadManager:
-    @staticmethod
-    def save_to_file(filename, turn_manager):
-        try:
-            with open(filename, "w") as file:
-                json.dump(turn_manager.to_dict(), file, indent=4)
-            print(f"[DEBUG] Successfully saved TurnManager to {filename}")
-        except Exception as e:
-            print(f"[ERROR] Failed to save game: {e}")
-
-    @staticmethod
-    def load_from_file(filename, **kwargs):
-        try:
-            # Load the primary save file
-            with open(f"{filename}", "r") as file:
-                data = json.load(file)
-            print(f"[DEBUG] Successfully loaded TurnManager from {filename}")
-            
-            # Inject optional dictionaries from **kwargs into the game memory
-           
-            optional_data = {}
-            if optional_data:
-                for key, filepath in kwargs.items():
-                    try:
-                        with open(filepath, "r") as optional_file:
-                            loaded_data = json.load(optional_file)
-                            # Assign the entire content of the file or its specific key to optional_data
-                            optional_data[key] = loaded_data.get(key, loaded_data)
-                        print(f"[DEBUG] Successfully loaded additional data: {key} from {filepath}")
-                    except Exception as e:
-                        print(f"[WARNING] Failed to load optional file {key}: {e}")
-
-            return TurnManager.from_dict(data), optional_data
-        except Exception as e:
-            print(f"[ERROR] Failed to load game: {e}")
-            return None, None
-
+        return movement_manager
 
 class RoomManager:
     def __init__(self):
@@ -180,13 +136,19 @@ class RoomManager:
         return "\n".join(room_info)
 
     def to_dict(self):
+        # Update all combatant's current_room before serialization
+        for room in self.game_rooms:
+            for combatant in room.combatants:
+                combatant.current_room = room.room_id
         return {
             "game_rooms": [room.to_dict() for room in self.game_rooms],  # Serialize all rooms
         }
 
+
+
     @classmethod
     def from_dict(cls, data):
-        from room import Room
+        from game.room import Room
         room_manager = cls()
         if "game_rooms" in data:
             room_manager.game_rooms = [Room.from_dict(room_data) for room_data in data["game_rooms"]]
@@ -200,12 +162,13 @@ class RoomManager:
 
 
 class TurnManager:
-    def __init__(self, stop_event):
-        from input_thread import stop_event
+    def __init__(self, stop_event=False):
+        from game.input_thread import stop_event
         self.current_turn = 0
         self.room_manager = RoomManager()
         self.running = False
         self.stop_event = stop_event
+        self.movement_manager = None
 
     def advance_turn(self):
         self.current_turn += 1
@@ -232,16 +195,22 @@ class TurnManager:
     #     self.running = False  # Stop the timer thread gracefully
 
     def to_dict(self):
-        from room import Room
+        from game.room import Room
+        # Update all combatant's current_room before serialization
+        for room in self.room_manager.game_rooms:
+            for combatant in room.combatants:
+                combatant.current_room = room.room_id
         return {
             "current_turn": self.current_turn,
             "room_manager": self.room_manager.to_dict(),  # Serialize the RoomManager
-            "room_count": Room.room_count  # Include the current room_count value
+            "room_count": Room.room_count,  # Include the current room_count value
+            "movement_manager": self.movement_manager.to_dict() if self.movement_manager else None
         }
+
 
     @classmethod
     def from_dict(cls, data):
-        from room import Room
+        from game.room import Room
         Room.room_count = 0 # Reset room_count when loading
         turn_manager = cls()
         if "room_manager" in data:
@@ -250,6 +219,10 @@ class TurnManager:
             turn_manager.current_turn = data["current_turn"]  # Restore current turn
         else:
             print("[WARNING] 'current_turn' key missing in save file data!")
+        if "movement_manager" in data and data["movement_manager"]:
+            turn_manager.movement_manager = MovementManager.from_dict(data["movement_manager"], turn_manager.room_manager, None)
+        else:
+            turn_manager.movement_manager = None
         return turn_manager
 
 
@@ -337,15 +310,6 @@ class CombatantManager:
         return f"Buffs: {buffs_desc}\nDebuffs: {debuffs_desc}"
 
 
-class SaveLoadManager:
-    @staticmethod
-    def save_to_file(filename, turn_manager):
-        try:
-            with open(filename, "w") as file:
-                json.dump(turn_manager.to_dict(), file, indent=4)
-            print(f"[DEBUG] Successfully saved TurnManager to {filename}")
-        except Exception as e:
-            print(f"[ERROR] Failed to save game: {e}")
 
 class SaveLoadManager:
     @staticmethod
@@ -358,29 +322,26 @@ class SaveLoadManager:
             print(f"[ERROR] Failed to save game: {e}")
 
     @staticmethod
-    def load_from_file(filename, **kwargs):
+    def load_from_file(filename, player):
         try:
-            # Load the primary save file
-            with open(f"{filename}", "r") as file:
+            with open(filename, "r") as file:
                 data = json.load(file)
             print(f"[DEBUG] Successfully loaded TurnManager from {filename}")
+            turn_manager = TurnManager.from_dict(data)
             
-            # Inject optional dictionaries from **kwargs into the game memory
-           
-            optional_data = {}
-            if optional_data:
-                for key, filepath in kwargs.items():
-                    try:
-                        with open(filepath, "r") as optional_file:
-                            loaded_data = json.load(optional_file)
-                            # Assign the entire content of the file or its specific key to optional_data
-                            optional_data[key] = loaded_data.get(key, loaded_data)
-                        print(f"[DEBUG] Successfully loaded additional data: {key} from {filepath}")
-                    except Exception as e:
-                        print(f"[WARNING] Failed to load optional file {key}: {e}")
-
-            return TurnManager.from_dict(data)
+            # Create MovementManager here if it was saved
+            if "movement_manager" in data and data["movement_manager"]:
+                turn_manager.movement_manager = MovementManager.from_dict(data["movement_manager"], turn_manager.room_manager, player)
+            else:
+                print("[DEBUG] No movement_manager data found in save file.")
+            
+            return turn_manager
+        except FileNotFoundError:
+            print(f"[ERROR] Save file not found: {filename}")
+            return None
+        except json.JSONDecodeError:
+            print(f"[ERROR] Invalid JSON data in save file: {filename}")
+            return None
         except Exception as e:
-            print(f"[ERROR] Failed to load game: {e}")
-            return None, None
-
+            print(f"[ERROR] An unexpected error occurred during loading: {e}")
+            raise  # Re-raise the exception to be handled elsewhere

@@ -1,10 +1,10 @@
 import uuid
-import combatant_data
-from managers import TurnManager, RoomManager, MovementManager
-from shared_resources import stop_event
+import game.combatant_data as combatant_data
+from game.managers import TurnManager, RoomManager, MovementManager, SaveLoadManager
+from game.shared_resources import stop_event
 print("helper_functions.py stop event:", stop_event)
 print(f"helper_functions.py stop_event: {id(stop_event)}")
-import room
+import game.room as room_object
 
 turn_interval = None
 turn_manager = None
@@ -50,9 +50,9 @@ def initialize_game():
 
     print(f"---------DEBUG--------MovementManager initialized: {movement_manager is not None}")
 
-    room1 = room.Room()
+    room1 = room_object.Room()
     room_manager.add_room(room1)
-    room2 = room.Room()
+    room2 = room_object.Room()
     room_manager.add_room(room2)
 
     room1.connect(room2, "north")
@@ -73,8 +73,6 @@ def initialize_game():
     print(room_manager.room_lookup[f"{dragon1.current_room}"].room_exits)
 
 
-
-
     room1.spawn_monsters(["dragon", "dragon"])
     room1.detect_hostility(turn_manager)
     dragon1.combatant_manager.add_buff("strength_boost", 5, 10)
@@ -89,79 +87,73 @@ def initialize_game():
     # print(player.stats["health"])
 
     # SAVE AND LOAD
-    # SaveLoadManager.save_to_file("serialization/save_game.json", turn_manager)
+    SaveLoadManager.save_to_file("serialization/save_game.json", turn_manager)
 
     # print(RoomManager)  # Should display <class 'RoomManager'>
     # print(hasattr(RoomManager, "from_dict"))  # Should display True
 
 
-    # room_manager = None
-    # turn_manager = None
+    room_manager = None
+    turn_manager = None
     # # # Load the game and optional data
-    # turn_manager = SaveLoadManager.load_from_file(
-    #     "serialization/save_game.json")
 
-    # print(player.current_room)
+    turn_manager = SaveLoadManager.load_from_file(
+        "serialization/save_game.json", player)
 
-    # print((turn_manager))
-
-
-    # dragon1.combatant_manager.decrement_buff_durations()
-    # print(dragon1.describe())
-    # print(dragon1.type)
-
-    # selected_traits_for_dragon2 = ["regeneration"]
-    # dragon2 = create_creature(
-    #     creature_type="dragon",
-    #     creature_data=creature_data,
-    #     creature_traits=creature_traits_data,
-    #     status_data=creature_status_data,
-    #     selected_traits=selected_traits_for_dragon2
-    # )
-
-    # dragon1.stats["health"] -= 20
-    # print(f"Flame Wyvern HP: {dragon1.stats['health']}")
-    # print(f"Flame Wyvern HP: {dragon2.stats['health']}")
-    # print(dragon1.describe())
-    # print(dragon1.hates_all)
-
-    # dragon2.stats["health"] += 20
-    # print(f"Flame Wyvern HP: {dragon1.stats['health']}")
-    # print(f"Flame Wyvern HP: {dragon2.stats['health']}")
-    # dragon2.combatant_manager.add_buff("strength_boost", 5, 5)
-    # print(dragon2.describe())
-
-    # print("---------------------")
-    # pprint(dir(dragon1))
-    # pprint(vars(dragon1.combatant_manager))
-    # pprint(help(dragon1))
-    # pprint(hasattr(dragon1, 'x'))
-    # pprint(getattr(dragon1, 'x', 'Attribute not found'))
+    # Check if loading was successful
+    if turn_manager is None:
+        print("[ERROR] Failed to load the game. Exiting.")
+        return None  # Or handle the error in another way
 
 
-    # player.combatant_manager.add_buff("strength_boost", 5, 5)
-    # pprint(dir(player))
-    # pprint(f"[DEBUG Dragon]{vars(dragon1.combatant_manager)}")
-    # pprint(f"[DEBUG Dragon]{vars(dragon2.combatant_manager)}")
-    # pprint(vars(player))
-    # pprint(vars(companion1))
+    print("NEW DEBUG:")
+    # Retrieve room manager from the turn manager
+    room_manager = turn_manager.room_manager
+    print(f"[DEBUG initialize_game] Loaded room_manager: {room_manager}") # ADDED DEBUG
+    print(f"[DEBUG initialize_game] room_manager.room_lookup: {room_manager.room_lookup}") # ADDED DEBUG
+
+    # Retrieve movement manager from the turn manager
+    if turn_manager.movement_manager is None: # ADD THIS LINE
+        print("[DEBUG initialize_game] movement_manager is None. Creating a new one.") # ADDED DEBUG
+        movement_manager = MovementManager(room_manager, player) # ADD THIS LINE
+        turn_manager.movement_manager = movement_manager # ADD THIS LINE
+    else: # ADD THIS LINE
+        print("[DEBUG initialize_game] movement_manager found in turn_manager.") # ADDED DEBUG
+        movement_manager = turn_manager.movement_manager # ADD THIS LINE
+    print(f"[DEBUG initialize_game] Loaded movement_manager: {movement_manager}") # ADDED DEBUG
+    # Set room manager attribute of the movement manager to the loaded room manager
+    movement_manager.room_manager = room_manager
+    # Set the player attribute of the movement manager to the loaded player
+    movement_manager.player = player
+    print(f"[DEBUG initialize_game] movement_manager.room_manager: {movement_manager.room_manager}") # ADDED DEBUG
+    print(f"[DEBUG initialize_game] movement_manager.player: {movement_manager.player}") # ADDED DEBUG
+
+    # Update the player's current room
+    print(f"[DEBUG initialize_game] Before updating player.current_room: {player.current_room}") # ADDED DEBUG
+    player.current_room = room_manager.room_lookup[player.current_room].room_id
+    print(f"[DEBUG initialize_game] After updating player.current_room: {player.current_room}") # ADDED DEBUG
 
 
+    # Update the combatants' current room
+    for room in room_manager.game_rooms:
+        for combatant in room.combatants:
+            combatant.current_room = room.room_id
 
-    # Get information about rooms / a room
-    # room_manager.display_map()
-    # print(room_manager.get_room_info("room1"))
-    # print(room_manager.get_room_info("room2"))
-    turn_interval=10
+    # Update the grudges
+    for room in room_manager.game_rooms:
+        room.detect_hostility(turn_manager)
+
+    turn_interval=20
     turn_manager.start_timer(turn_interval)
     print("Turn interval set to:", turn_interval)
 
     start_current_player_room = room_manager.room_lookup[player.current_room]
-    return {"movement_manager": movement_manager, "player": player, "start_current_player_room": start_current_player_room}
+    return {"movement_manager": movement_manager, "player": player, "start_current_player_room": start_current_player_room, "turn_manager": turn_manager}
+
 
 
 def create_companion(creature_type, companion_data, creature_traits, status_data, selected_traits=None):
-    from combatants import Companion
+    from game.combatants import Companion
     """
     Creates a Player object by extracting the data for the given creature type.
 
@@ -204,7 +196,7 @@ def create_companion(creature_type, companion_data, creature_traits, status_data
     )
 
 def create_player(creature_type, player_data, creature_traits, status_data, selected_traits=None):
-    from combatants import Player
+    from game.combatants import Player
     """
     Creates a Player object by extracting the data for the given creature type.
 
@@ -247,7 +239,7 @@ def create_player(creature_type, player_data, creature_traits, status_data, sele
     )
 
 def create_creature(creature_type, creature_data, creature_traits, status_data, selected_traits=None):
-    from combatants import Monster
+    from game.combatants import Monster
     """
     Creates a Monster object by extracting the data for the given creature type.
 

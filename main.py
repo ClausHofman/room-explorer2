@@ -1,5 +1,5 @@
 import sys, os
-sys.path.append(f'{os.getcwd()}\game')
+# sys.path.append(f'{os.getcwd()}\game')
 from game.helper_functions import initialize_game
 from game.input_thread import input_thread
 import threading, time
@@ -19,10 +19,10 @@ def main():
     print("movement_manager object:", start_game["movement_manager"])
 
     # Check that argument order is correct!
-    user_input_thread = threading.Thread(target=input_thread, args=(start_game["player"], start_game["movement_manager"]))
+    user_input_thread = threading.Thread(target=input_thread, args=(start_game["player"], start_game["movement_manager"], start_game["turn_manager"]), daemon=True)
     user_input_thread.start()
-    print("Type 'list_commands' for available commands.")
 
+    print("\033[38;5;76m Type 'list_commands' for available commands. \033[38;5;76m")
     if not user_input_thread.is_alive():
         print("Input thread has unexpectedly stopped.")
 

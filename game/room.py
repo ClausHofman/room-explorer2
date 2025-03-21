@@ -1,4 +1,5 @@
-from combatant_data import *
+import game.combatant_data as combatant_data
+from game.combatants import Player, Companion, Monster
 import random
 
 class Room:
@@ -21,6 +22,9 @@ class Room:
         
 
     def to_dict(self):
+        # Update all combatant's current_room before serialization
+        for combatant in self.combatants:
+            combatant.current_room = self.room_id
         room_dict = {
             "room_name": self.room_name,
             "room_id": self.room_id,
@@ -36,6 +40,8 @@ class Room:
             "room_exits": self.room_exits,
         }
         return room_dict
+
+
 
     @classmethod
     def from_dict(cls, room_data):
@@ -61,6 +67,7 @@ class Room:
         # Add room_exits after initialization, here because is not in the __init__ constructor
         reconstructed_room.room_exits = room_data.get("room_exits", {})
 
+        print(f"[DEBUG ROOM.PY] room_data: {room_data}")
         # Deserialize combatants
         deserialized_combatants = [
             globals()[combatant_data["type"]].from_dict(combatant_data["data"]) for combatant_data in room_data["combatants"]
@@ -215,6 +222,22 @@ class Room:
         combatant.current_room = self.room_id
         self.combatants.append(combatant)
 
+    def remove_combatant_by_id(self, combatant_id):
+        """
+        Removes a combatant from the room based on their ID.
+
+        Args:
+            combatant_id: The ID of the combatant to remove.
+        """
+        for combatant in self.combatants:
+            if combatant.id == combatant_id:
+                print(f"[DEBUG] Removing combatant: {combatant.name} (ID: {combatant.id})")
+                self.combatants.remove(combatant)
+                combatant.current_room = None  # Optionally reset the combatant's current_room
+                return  # Exit after removing the combatant
+        print(f"[DEBUG] Combatant with ID {combatant_id} is not in the room. Skipping removal.")
+
+
 
     def add_new_combatant(self, combatant):
         print(f"[DEBUG] A new combatant enters the room: {combatant.name} (ID: {combatant.id})")
@@ -357,7 +380,7 @@ class Room:
         return False
     
     def trigger_reinforcements(self):
-        from combatants import Monster
+        from game.combatants import Monster
         reinforcement_data = {
             "name": "Reinforcement Goblin",
             "health": 50,
@@ -372,7 +395,7 @@ class Room:
         self.add_new_combatant(new_goblin)
 
     def spawn_monsters(self, monster_types):
-        from helper_functions import create_creature
+        from game.helper_functions import create_creature
         """
         Spawns monsters based on the given monster_types.
         :param monster_types: Either a string (single monster type) or a list of strings (multiple monster types).
@@ -383,15 +406,15 @@ class Room:
 
         # Iterate over the list of monster types and spawn each monster
         for monster_type in monster_types:
-            if monster_type not in creature_data.keys():
+            if monster_type not in combatant_data.creature_data.keys():
                 raise ValueError(f"Creature type '{monster_type}' does not exist in creature_data.")
             
             # Create and add the monster to combatants
             monster = create_creature(
                 creature_type=monster_type,
-                creature_data=creature_data,
-                creature_traits=creature_traits_data,
-                status_data=creature_status_data,
+                creature_data=combatant_data.creature_data,
+                creature_traits=combatant_data.creature_traits_data,
+                status_data=combatant_data.creature_status_data,
                 # selected_traits=selected_traits_for_dragon # Would need to use default traits or maybe random ones
             )
             self.add_combatant(monster)

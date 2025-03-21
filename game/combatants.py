@@ -1,3 +1,4 @@
+import game.combatant_data as combatant_data
 
 class Combatant:
     def __init__(self, combatant_id, name, stats, hates_all=False, hates_player_and_companions=False, hates=None, monster_type=None):
@@ -18,6 +19,7 @@ class Combatant:
         self.hates = hates or []  # Defaults to an empty list if not provided
         self.monster_type = monster_type
         self.grudge_list = []  # Tracks IDs of entities this combatant is hostile toward
+        self.current_room = None
 
     def is_alive(self):
             return self.stats["health"] > 0
@@ -40,14 +42,13 @@ class Combatant:
         return {
             "id": self.id,
             "name": self.name,
-            "health": self.stats["health"],
-            "attack": self.stats["attack"],
-            "defense": self.stats["defense"],
+            "stats": self.stats,
             "hates_all": self.hates_all,
             "hates_player_and_companions": self.hates_player_and_companions,
             "hates": self.hates,
             "monster_type": self.monster_type,
             "grudge_list": self.grudge_list,
+            "current_room": self.current_room,
             "status_effect": {
                 "buffs": self.combatant_manager.buffs if self.combatant_manager and isinstance(self.combatant_manager.buffs, dict) else {},
                 "debuffs": self.combatant_manager.debuffs if self.combatant_manager and isinstance(self.combatant_manager.debuffs, dict) else {}
@@ -57,7 +58,8 @@ class Combatant:
     # Deserialization method
     @classmethod
     def from_dict(cls, data):
-        # Create a new instance of Combatant from a dictionary
+        print(f"[DEBUG COMBATANT.PY] data in from_dict: {data}")
+
         stats = {
                     "health": data["stats"]["health"],
                     "attack": data["stats"]["attack"],
@@ -72,19 +74,17 @@ class Combatant:
             hates_player_and_companions=data.get("hates_player_and_companions", False),
             hates=data.get("hates", []),
             monster_type=data.get("monster_type", None),
-            has_traits=data.get("has_traits", {}),
-            all_creature_traits_data=data.get("all_creature_traits_data", {}),
-            status_effects=status_effects,  # Rebuild status data
-            selected_traits=data.get("selected_traits", None)            
         )
         instance.grudge_list = data.get("grudge_list", [])  # Restore grudges
+        instance.current_room = data.get("current_room", None)
         return instance
+
 
 
 class Player(Combatant):
     def __init__(self, combatant_id, name, stats, hates_all, hates_player_and_companions, hates, monster_type, has_traits, all_creature_traits_data, status_data, current_room=None, selected_traits=None):
         super().__init__(combatant_id, name, stats, hates_all, hates_player_and_companions, hates, monster_type)
-        from managers import CombatantManager
+        from game.managers import CombatantManager
         self.has_traits = has_traits
         self.combatant_manager = CombatantManager(
             traits_dict=all_creature_traits_data,
@@ -100,17 +100,22 @@ class Player(Combatant):
         base.update({
             "inventory": self.inventory,
             "equipment": self.equipment,
-            "current_room": self.current_room
+            "current_room": self.current_room,
+            "has_traits": self.has_traits,
+            "all_creature_traits_data": self.combatant_manager.all_traits,
+            "selected_traits": self.combatant_manager.selected_traits
         })
         return base
 
     # Deserialization method
     @classmethod
     def from_dict(cls, data):
+        print(f"[DEBUG COMBATANT.PY] data in from_dict: {data}")
+
         stats = {
-            "health": data["health"],
-            "attack": data["attack"],
-            "defense": data["defense"]
+            "health": data["stats"]["health"],
+            "attack": data["stats"]["attack"],
+            "defense": data["stats"]["defense"]
         }
 
         # Extract and organize status effects properly
@@ -140,7 +145,7 @@ class Companion(Combatant):
     def __init__(self, combatant_id, name, stats, hates_all, hates_player_and_companions, hates, monster_type, has_traits, all_creature_traits_data, status_data, current_room=None, selected_traits=None):
         super().__init__(combatant_id, name, stats, hates_all, hates_player_and_companions, hates, monster_type)
         self.has_traits = has_traits
-        from managers import CombatantManager
+        from game.managers import CombatantManager
         self.combatant_manager = CombatantManager(
             traits_dict=all_creature_traits_data,
             status_effects=status_data["status_effect"],
@@ -156,16 +161,21 @@ class Companion(Combatant):
             "inventory": self.inventory,
             "equipment": self.equipment,
             "current_room": self.current_room,
+            "has_traits": self.has_traits,
+            "all_creature_traits_data": self.combatant_manager.all_traits,
+            "selected_traits": self.combatant_manager.selected_traits
         })
         return base
 
     # Deserialization method
     @classmethod
     def from_dict(cls, data):
+        print(f"[DEBUG COMBATANT.PY] data in from_dict: {data}")
+
         stats = {
-            "health": data["health"],
-            "attack": data["attack"],
-            "defense": data["defense"]
+            "health": data["stats"]["health"],
+            "attack": data["stats"]["attack"],
+            "defense": data["stats"]["defense"]
         }
 
         # Extract and organize status effects properly
@@ -207,10 +217,10 @@ class Monster(Combatant):
         super().__init__(combatant_id, name, stats, hates_all, hates_player_and_companions, hates, monster_type)
         self.has_traits = has_traits
         self.current_room = current_room
-        from managers import CombatantManager
+        from game.managers import CombatantManager
         self.combatant_manager = CombatantManager(
             traits_dict=all_creature_traits_data,
-            status_effects=status_data,
+            status_effects=status_data["status_effect"],
             selected_traits=selected_traits
         )
         self._apply_selected_traits()
@@ -243,12 +253,17 @@ class Monster(Combatant):
             "name": self.name,
             "stats": self.stats,
             "has_traits": {key: value for key, value in self.has_traits.items()},
-            "current_room": self.current_room
+            "current_room": self.current_room,
+            "all_creature_traits_data": self.combatant_manager.all_traits,
+            "selected_traits": self.combatant_manager.selected_traits
         })
         return base
 
+    # Deserialization method
     @classmethod
     def from_dict(cls, data):
+        print(f"[DEBUG COMBATANT.PY] data in from_dict: {data}")
+
         stats = {
             "health": data["stats"]["health"],
             "attack": data["stats"]["attack"],
