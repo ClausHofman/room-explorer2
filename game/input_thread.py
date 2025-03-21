@@ -1,88 +1,80 @@
-
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.patch_stdout import patch_stdout
+from prompt_toolkit.completion import WordCompleter
+from helper_functions import CommandCompleter
 import threading
+from shared_resources import stop_event
 
-# Shared flag to manage thread lifecycle
-running = True
+DEBUG = True
 
-# Command storage
-commands = {
-    "list_commands": {
-        "description": "List all available commands",
-        "handler": lambda: print("Available commands:\n" + "\n".join(commands.keys()))
-    },
-    "quit": {
-        "description": "Quit the game",
-        "handler": lambda: quit_game()
-    },
-    # Add more commands as needed
-}
+# stop_event = threading.Event()
+print("input_thread.py stop event:", stop_event)
+print(f"input_thread.py stop_event: {id(stop_event)}")
 
-def quit_game():
-    global running
-    print("Quitting the game. Goodbye!")
-    running = False  # Signal the input thread to stop
+def input_thread(player, movement_manager):
+    commands = {
+        "list_commands": {
+            "description": "List all available commands",
+            "handler": lambda: print("Available commands:\n" + "\n".join(f"{cmd}: {details['description']}\n" for cmd, details in commands.items())),
+        },
+        "quit": {
+            "description": "Quit the game",
+            "handler": lambda: quit_game(),
+        },
+        "move": {
+            "description": "Move in a specified direction (e.g., 'move north')",
+            "handler": lambda direction: movement_manager.move_entity_command(direction, player),
+        },
+    }
 
-# Input thread with command history
-def input_thread():
-    # Create a history object for input storage
+    # Create a WordCompleter with command descriptions
+    # command_completer = WordCompleter(
+    #     [f"{cmd} - {details['description']}" for cmd, details in commands.items()],
+    #     ignore_case=True
+    # )
+
+    command_completer = WordCompleter(
+        [f"{cmd} " for cmd in commands.keys()],
+        ignore_case=True
+    )
+
     history = InMemoryHistory()
-
-    # Use PromptSession with history
-    session = PromptSession(history=history)
+    command_completer = CommandCompleter(commands)
+    
+    session = PromptSession(history=history, completer=command_completer)
 
     with patch_stdout():
-        while running:
+        while not stop_event.is_set():
             try:
-                # Use prompt_toolkit to get input, with history enabled
                 user_input = session.prompt(">> ").strip()
 
-                # Split input into command and arguments
                 parts = user_input.split()
                 if not parts:
                     continue
                 command = parts[0]
                 args = parts[1:]
 
-                # Execute the command if valid
-                if command in commands:
-                    try:
-                        commands[command]["handler"](*args)
-                    except TypeError:
-                        print(f"Invalid usage for command: {command}")
-                else:
-                    print(f"Unknown command: {command}")
+                with threading.Lock():
+                    if command in commands:
+                        try:
+                            commands[command]["handler"](*args)
+                        except TypeError:
+                            print(f"Invalid usage for command: {command}")
+                    else:
+                        print(f"Unknown command: {command}")
             except (EOFError, KeyboardInterrupt):
-                # Handle Ctrl+D or Ctrl+C gracefully
+                print("Input thread interrupted. Quitting...")
                 quit_game()
+            except Exception as e:
+                print(f"Unexpected error: {e}")
 
-# Main game logic
-def main_game_loop():
-    try:
-        # Game initialization or setup can go here
-        while running:
-            print("Game logic is running...")
-
-            # Simulate world updates or actions
-            threading.Event().wait(2)  # Simulate some delay
-    except KeyboardInterrupt:
-        quit_game()
-
-# Launching the input thread
-if __name__ == "__main__":
-    # Start the input thread
-    input_thread_instance = threading.Thread(target=input_thread, daemon=True)
-    input_thread_instance.start()
-
-    # Run the main game loop
-    main_game_loop()
-
-    # Join the thread when exiting
-    input_thread_instance.join()
-
-
+def quit_game():
+    # print("Active threads:", threading.enumerate())
+    print("Quitting the game. Setting stop_event...")
+    stop_event.set()
+    print("Active threads:", threading.enumerate())
+    print("stop_event has been set.")
 
 # Color testing
 # from colorama import Fore, Style, init

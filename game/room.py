@@ -1,3 +1,4 @@
+from combatant_data import *
 import random
 
 class Room:
@@ -372,7 +373,6 @@ class Room:
 
     def spawn_monsters(self, monster_types):
         from helper_functions import create_creature
-        from combatant_data import creature_data, creature_traits_data, creature_status_data
         """
         Spawns monsters based on the given monster_types.
         :param monster_types: Either a string (single monster type) or a list of strings (multiple monster types).

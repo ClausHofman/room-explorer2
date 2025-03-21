@@ -1,6 +1,79 @@
 import json, threading, copy, time
 
 
+
+class MovementManager:
+    def __init__(self, room_manager, player):
+        self.room_manager = room_manager
+        self.player = player
+
+
+    def move_player(self, player, direction):
+        """Handles moving the player to another room."""
+        current_room = self.room_manager.room_lookup[player.current_room]
+
+        if direction not in current_room.room_exits:
+            print(f"You can't move to the {direction}. There's no path.")
+            return False
+
+        # Update player's current room
+        target_room_id = current_room.room_exits[direction]
+        player.current_room = target_room_id
+        print(f"You move from {current_room.room_name} to {self.room_manager.room_lookup[target_room_id].room_name} in the {direction}.")
+
+        return True
+
+    def move_entity_command(self, direction, player):
+        """Handle the move command for the player."""
+        if self is None:
+            print("Movement system is not initialized.")
+            return
+
+        if direction:
+            success = self.move_player(player, direction)
+            if not success:
+                print(f"Unable to move {direction}.")
+        else:
+            print("You must specify a direction to move (e.g., 'move north').")
+
+
+    # def move_entity(self, entity, direction):
+    #     """Handles moving an entity to another room."""
+    #     initial_room = self.room_manager.room_lookup[f"{entity.current_room}"]
+    #     print(initial_room.room_exits.keys())
+    #     if direction in initial_room.room_exits.keys():
+    #         entity.current_room = self.room_manager.room_lookup[f"{entity.current_room}"].room_exits[f"{direction}"]
+
+    #     if direction not in initial_room.room_exits.keys():
+    #         print(f"{entity.name} cannot move to {direction}. No path exists.")
+    #         return False
+
+    #     # Handle movement logic
+    #     print(f"{entity.name} moves from {initial_room.room_id} to {entity.current_room} in the {direction}.")
+        
+    # def validate_move(self, current_room, direction):
+    #     """Validate if a move in the given direction is possible."""
+    #     return direction in current_room.room_exits
+
+
+    # def move(self, direction):
+    #     # global current_player_room  # Access the global variable
+    #     if direction in self.current_room.exits:
+    #         self.current_room = self.current_room.exits[direction]
+    #         current_player_room = self.current_room
+    #         print("MOVING, CURRENT PLAYER ROOM: ", current_player_room)
+    #         room.update_current_player_room(self.current_room)
+    #         print("\nCURRENT ROOM EXITS:", self.current_room.exits.keys())
+    #         print(f"You moved {direction} to {self.current_room.name}.")
+    #         print(self.current_room.description)
+
+    #         if self.room_manager.current_room.combatants:
+    #             for creature in self.current_room.combatants:
+    #                 print(f"Combatants in room: {creature.name}")
+    #     else:
+    #         print("You can't go that way.")
+
+
 class SaveLoadManager:
     @staticmethod
     def save_to_file(filename, turn_manager):
@@ -127,10 +200,12 @@ class RoomManager:
 
 
 class TurnManager:
-    def __init__(self):
+    def __init__(self, stop_event):
+        from input_thread import stop_event
         self.current_turn = 0
-        self.room_manager = RoomManager()  # Manages all game rooms
-        self.running = False  # Ensure running is initialized
+        self.room_manager = RoomManager()
+        self.running = False
+        self.stop_event = stop_event
 
     def advance_turn(self):
         self.current_turn += 1
@@ -143,16 +218,18 @@ class TurnManager:
 
     def start_timer(self, interval_seconds):
         def timer_task():
-            while self.running:  # Use a flag to control the loop
+            while not self.stop_event.is_set():
+                # print(f"Timer running. stop_event.is_set(): {self.stop_event.is_set()}")
                 time.sleep(interval_seconds)
                 self.advance_turn()
+            print("[DEBUG TurnManager] Timer thread exiting...")
 
-        self.running = True
         thread = threading.Thread(target=timer_task, daemon=True)
         thread.start()
 
-    def stop_timer(self):
-        self.running = False  # Stop the timer thread gracefully
+
+    # def stop_timer(self):
+    #     self.running = False  # Stop the timer thread gracefully
 
     def to_dict(self):
         from room import Room

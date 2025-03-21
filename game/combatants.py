@@ -1,6 +1,3 @@
-import uuid, json, random, threading, time, copy
-
-
 
 class Combatant:
     def __init__(self, combatant_id, name, stats, hates_all=False, hates_player_and_companions=False, hates=None, monster_type=None):
