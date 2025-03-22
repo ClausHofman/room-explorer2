@@ -4,7 +4,6 @@ from game.helper_functions import initialize_game
 from game.input_thread import input_thread
 import threading, time
 
-
 start_game = None
 
 def main():
@@ -19,8 +18,24 @@ def main():
     print("movement_manager object:", start_game["movement_manager"])
 
     # Check that argument order is correct!
-    user_input_thread = threading.Thread(target=input_thread, args=(start_game["player"], start_game["movement_manager"], start_game["turn_manager"]), daemon=True)
+    user_input_thread = threading.Thread(target=input_thread, args=(
+        start_game["player"],
+        start_game["movement_manager"],
+        start_game["turn_manager"],
+        ), daemon=True)
+    
     user_input_thread.start()
+
+    # turn_manager = start_game["turn_manager"]
+    # player_action_manager = start_game["player_action_manager"]
+    # player = start_game["player"]
+    # movement_manager = turn_manager.movement_manager
+    # room_manager = turn_manager.room_manager
+    # movement_manager.move_player(player, "north")
+    # player_action_manager.exits()
+
+
+    
 
     print("\033[38;5;76m Type 'list_commands' for available commands. \033[38;5;76m")
     if not user_input_thread.is_alive():

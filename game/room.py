@@ -5,7 +5,7 @@ import random
 class Room:
     room_count = 0
 
-    def __init__(self, room_name="Default room name", room_id=None, always_track_turns=False, in_combat=False, combat_rounds=0):
+    def __init__(self, room_name="Default room name", room_short_desc="Short description", room_id=None, always_track_turns=False, in_combat=False, combat_rounds=0):
         Room.room_count += 1  # Increment the count unconditionally
         self.room_name = room_name
         if room_id is None:
@@ -19,6 +19,8 @@ class Room:
         self.combatants = []  # Holds Player, Companion, and Monster objects
         self.entities = []  # Not in use, could be used for other objects in the future
         self.room_exits = {}
+        self.room_short_desc = room_short_desc
+        self.player_in_room = False
         
 
     def to_dict(self):
@@ -27,6 +29,7 @@ class Room:
             combatant.current_room = self.room_id
         room_dict = {
             "room_name": self.room_name,
+            "room_short_desc": self.room_short_desc,
             "room_id": self.room_id,
             "in_combat": self.in_combat,
             "combat_rounds": self.combat_rounds,
@@ -57,6 +60,7 @@ class Room:
             always_track_turns=room_data.get("always_track_turns", False),
             in_combat=room_data.get("in_combat", False),
             combat_rounds=room_data.get("combat_rounds", 0),
+            room_short_desc=room_data.get("room_short_desc", "Short description")
         )
         
         print(f"[DEBUG FROM_DICT] Reconstructed Room: {reconstructed_room.room_id}, "
@@ -67,7 +71,7 @@ class Room:
         # Add room_exits after initialization, here because is not in the __init__ constructor
         reconstructed_room.room_exits = room_data.get("room_exits", {})
 
-        print(f"[DEBUG ROOM.PY] room_data: {room_data}")
+        # print(f"[DEBUG ROOM.PY] room_data: {room_data}")
         # Deserialize combatants
         deserialized_combatants = [
             globals()[combatant_data["type"]].from_dict(combatant_data["data"]) for combatant_data in room_data["combatants"]
@@ -129,52 +133,13 @@ class Room:
             self.combat_rounds += 1
             print(f"Combat Round {self.combat_rounds} begins in Room {self.room_id}!")
 
-    def on_turn_advanced(self, current_turn):
+    def on_turn_advanced(self): # note: removed current_turn
         if self.in_combat:
             self.advance_combat_round()
 
     def advance_combat_round(self, current_turn):
         if not self.in_combat:
             return  # Skip if not in combat
-
-        # Only progress to the next round if the global turn has advanced
-        if current_turn > self.combat_start_turn + self.combat_rounds:
-            self.combat_rounds += 1  # Increment the combat round
-            print(f"[DEBUG advance_combat_round] Starting Combat Round {self.combat_rounds} in Room {self.room_id}!")
-
-            active_combatants = [c for c in self.combatants if c.is_alive()]
-            print(f"[DEBUG advance_combat_round] Active combatants: {[c.name for c in active_combatants]}")
-
-            # Hostility check
-            if not self.has_hostility():
-                print("[DEBUG advance_combat_round] No hostility remains. Combat ends.")
-                self.end_combat()
-                return
-
-            # Process each combatant's turn
-            for combatant in active_combatants:
-                if not combatant.grudge_list:
-                    print(f"[DEBUG advance_combat_round] {combatant.name} has no hostility and skips the turn.")
-                    continue
-
-                target = self.select_target(combatant)
-                if not target:
-                    print(f"[DEBUG advance_combat_round] {combatant.name} could not find a valid target.")
-                    continue
-
-                # Attack logic
-                damage = max(combatant.stats["attack"] - target.stats["defense"], 1)
-                print(f"{combatant.name} attacks {target.name} for {damage} damage!")
-                target.take_damage(damage)
-
-                # Remove defeated combatants from grudges
-                if not target.is_alive():
-                    self.remove_defeated_grudges(target.id)
-
-            # Check victory conditions
-            if self.check_victory():
-                self.end_combat()
-
 
         # Only advance if we're on the right turn
         if current_turn > self.combat_start_turn + self.combat_rounds:
@@ -187,26 +152,29 @@ class Room:
 
             # Check hostility
             if not self.has_hostility():
-                print(f"[DEBUG advance_combat_round] No hostility remains. Combat ends in Room {self.room_id}.")
+                if self.player_in_room:
+                    print(f"[DEBUG advance_combat_round] No hostility remains. Combat ends in Room {self.room_id}.")
                 self.end_combat()
                 return
 
-            # Process each combatant's action
+            # Process each combatant's turn
             for combatant in active_combatants:
                 if not combatant.grudge_list:
-                    print(f"[DEBUG advance_combat_round] {combatant.name} has no hostility and skips the turn.")
+                    # print(f"[DEBUG advance_combat_round] {combatant.name} has no hostility and skips the turn.")
                     continue
 
                 target = self.select_target(combatant)
                 if not target:
-                    print(f"[DEBUG advance_combat_round] {combatant.name} could not find a valid target.")
+                    # print(f"[DEBUG advance_combat_round] {combatant.name} could not find a valid target.")
                     continue
 
                 # Attack logic
                 damage = max(combatant.stats["attack"] - target.stats["defense"], 1)
-                print(f"{combatant.name} attacks {target.name} for {damage} damage!")
+                if self.player_in_room:
+                    print(f"{combatant.name} attacks {target.name} for {damage} damage!")
                 target.take_damage(damage)
 
+		        # Remove defeated combatants from grudges
                 if not target.is_alive():
                     self.remove_defeated_grudges(target.id)
 
@@ -273,10 +241,10 @@ class Room:
         # Debugging: Print combatants and their grudges
         temp = []
         for c in self.combatants:
-            print(f"[DEBUG] {c.name} grudges: {c.grudge_list}")
+            print(f"[DEBUG detect_hostility] {c.name} grudges: {c.grudge_list}")
             temp += c.grudge_list
         if temp:
-            self.start_combat(turn_manager.current_turn)
+            self.start_combat(0)
 
 
     def has_hostility(self):
@@ -284,7 +252,7 @@ class Room:
         for combatant in self.combatants:
             # Skip dead combatants
             if not combatant.is_alive():
-                print(f"[DEBUG has_hostility] Skipping {combatant.name} (ID: {combatant.id}) because they are not alive.")
+                # print(f"[DEBUG has_hostility] Skipping {combatant.name} (ID: {combatant.id}) because they are not alive.")
                 continue
 
             # Debug: Print combatant details
@@ -353,31 +321,40 @@ class Room:
         print(f"Combat ends in Room {self.room_id}.")
 
     def remove_defeated_grudges(self, defeated_id):
-        print(f"[DEBUG] Removing {defeated_id} from all grudge lists")
+        # print(f"[DEBUG] Removing {defeated_id} from all grudge lists")
         for combatant in self.combatants:
             if defeated_id in combatant.grudge_list:
                 combatant.grudge_list.remove(defeated_id)
 
     def select_target(self, attacker):
-        print(f"[DEBUG] Selecting target for {attacker.name} (ID: {attacker.id})")
+        # print(f"[DEBUG] Selecting target for {attacker.name} (ID: {attacker.id})")
         # Filter grudge list for alive targets
         valid_targets = [combatant for combatant in self.combatants if combatant.id in attacker.grudge_list and combatant.is_alive()]
         
         # Debugging: Show grudge list and valid targets
-        print(f"[DEBUG] {attacker.name}'s grudge list: {attacker.grudge_list}")
-        print(f"[DEBUG] Valid targets for {attacker.name}: {[t.name for t in valid_targets]}")
+        # print(f"[DEBUG] {attacker.name}'s grudge list: {attacker.grudge_list}")
+        # print(f"[DEBUG] Valid targets for {attacker.name}: {[t.name for t in valid_targets]}")
         
         return random.choice(valid_targets) if valid_targets else None
 
 
     def check_victory(self):
-        if not any(c.is_alive() for c in self.combatants if c.id.startswith("player")):
-            print("[DEBUG] The player has been defeated! Game Over.")
+        active_grudges = False
+        for combatant in self.combatants:
+            if len(combatant.grudge_list) > 0:
+                active_grudges = True
+                break
+        if active_grudges == False:
+            print("No active grudges. Combat ends.")
             return True
-        if not any(c.is_alive() for c in self.combatants if c.id.startswith("player")):
-            print("[DEBUG] All monsters are defeated! Combat ends.")
-            return True
-        return False
+
+        # if not any(c.is_alive() for c in self.combatants if c.id.startswith("player")):
+        #     print("[DEBUG] The player has been defeated! Game Over.")
+        #     return True
+        # if not any(c.is_alive() for c in self.combatants if c.id.startswith("player")):
+        #     print("[DEBUG] All monsters are defeated! Combat ends.")
+        #     return True
+        # return False
     
     def trigger_reinforcements(self):
         from game.combatants import Monster

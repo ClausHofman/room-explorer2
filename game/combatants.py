@@ -35,7 +35,7 @@ class Combatant:
     def add_to_grudge_list(self, attacker_id):
         if attacker_id not in self.grudge_list:
             self.grudge_list.append(attacker_id)
-            print(f"[DEBUG] {self.name} adds {attacker_id} to grudge list")
+            # print(f"[DEBUG] {self.name} adds {attacker_id} to grudge list")
 
     # Serialization method
     def to_dict(self):
@@ -58,7 +58,7 @@ class Combatant:
     # Deserialization method
     @classmethod
     def from_dict(cls, data):
-        print(f"[DEBUG COMBATANT.PY] data in from_dict: {data}")
+        # print(f"[DEBUG COMBATANT.PY] data in from_dict: {data}")
 
         stats = {
                     "health": data["stats"]["health"],
@@ -110,7 +110,7 @@ class Player(Combatant):
     # Deserialization method
     @classmethod
     def from_dict(cls, data):
-        print(f"[DEBUG COMBATANT.PY] data in from_dict: {data}")
+        # print(f"[DEBUG COMBATANT.PY] data in from_dict: {data}")
 
         stats = {
             "health": data["stats"]["health"],
@@ -170,7 +170,7 @@ class Companion(Combatant):
     # Deserialization method
     @classmethod
     def from_dict(cls, data):
-        print(f"[DEBUG COMBATANT.PY] data in from_dict: {data}")
+        # print(f"[DEBUG COMBATANT.PY] data in from_dict: {data}")
 
         stats = {
             "health": data["stats"]["health"],
@@ -262,7 +262,7 @@ class Monster(Combatant):
     # Deserialization method
     @classmethod
     def from_dict(cls, data):
-        print(f"[DEBUG COMBATANT.PY] data in from_dict: {data}")
+        # print(f"[DEBUG COMBATANT.PY] data in from_dict: {data}")
 
         stats = {
             "health": data["stats"]["health"],

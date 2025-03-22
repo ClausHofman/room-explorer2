@@ -1,12 +1,163 @@
 import json, threading, copy, time
 
 
+class PlayerActionManager():
 
-class MovementManager:
-    def __init__(self, room_manager=None, player=None):
+    # Called when the player moves with MovementManager
+    def exits(self):
+        adjacent_rooms = self.room_manager.room_lookup[self.player.current_room].room_exits
+        
+        for direction, room_id in adjacent_rooms.items():
+            if room_id == self.player.current_room:
+                continue
+            print(f"{direction}: {self.room_manager.room_lookup[room_id].room_short_desc}")
+
+
+class RoomManager:
+    def __init__(self):
+        self.game_rooms = []  # List of Room objects
+        self.room_lookup = {}  # Maps room_id to Room objects
+
+    def add_room(self, room):
+        """Registers a new room in the RoomManager."""
+        room.room_manager = self
+        self.game_rooms.append(room)
+        self.room_lookup[room.room_id] = room
+        print(f"[DEBUG ADD ROOM] Room added: {room.room_name} ({room.room_id})")
+
+    def create_and_connect_rooms(self, starting_room):
+        from game.room import Room
+        """Handles user input to create and connect multiple rooms dynamically."""
+        valid_directions = ['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest', 'up', 'down']
+        opposite_directions = {'north': 'south', 'east': 'west', 'south': 'north', 'west': 'east', 'up': 'down', 'down': 'up', 'northeast': 'southwest', 'southeast': 'northwest', 'southwest': 'northeast', 'northwest': 'southeast'}
+
+        def get_available_directions(room):
+            """Returns available directions where no rooms exist."""
+            return [direction for direction in valid_directions if direction not in room.room_exits]
+
+        available_directions = get_available_directions(starting_room)
+        
+        if not available_directions:
+            print(f"No available directions for {starting_room.room_name} ({starting_room.room_id})!")
+            return
+        
+        print(f"Available directions for {starting_room.room_name}: {available_directions}")
+
+        while True:
+            try:
+                num_rooms = int(input(f"How many rooms do you want to connect to {starting_room.room_id}? (0 to abort) Max: {len(available_directions)} "))
+                if num_rooms == 0:
+                    print("Aborting room creation.")
+                    return
+                if 1 <= num_rooms <= len(available_directions):
+                    break
+                print(f"Invalid input. Please input a number between 0 and {len(available_directions)}.")
+            except ValueError:
+                print("Invalid input. Please enter a number.")
+
+        for _ in range(num_rooms):
+            available_directions = get_available_directions(starting_room)  # Refresh available directions
+
+            if not available_directions:
+                print(f"No more available directions for {starting_room.room_name}.")
+                break
+
+            while True:
+                direction = input(f"Pick an available direction: {available_directions} ").lower()
+                if direction in available_directions:
+                    break
+                print(f"Invalid direction. Please choose one from: {available_directions}")
+
+            opposite_direction = opposite_directions[direction]
+            print(f"Creating new room in {direction} direction...")
+
+            # Create a new room and register it
+            new_room = Room()
+            self.add_room(new_room)
+
+            # Establish bidirectional connection
+            starting_room.room_exits[direction] = new_room.room_id
+            new_room.room_exits[opposite_direction] = starting_room.room_id
+
+            print(f"Connected {starting_room.room_name} to {new_room.room_name} ({new_room.room_id}) via {direction}")
+
+    def get_room_info(self, room_id):
+        """Retrieve detailed information about a room."""
+        room = self.room_lookup.get(room_id)
+        if not room:
+            return f"[ERROR] Room with ID '{room_id}' not found."
+
+        room_info = [
+            f"Room Name: {room.room_name}",
+            f"Room ID: {room.room_id}",
+            "Exits:"
+        ]
+        if room.room_exits:
+            for direction, target_id in room.room_exits.items():
+                target_room = self.room_lookup.get(target_id)
+                room_info.append(f"  {direction} -> {target_room.room_name if target_room else target_id}")
+        else:
+            room_info.append("  No exits")
+
+        room_info.append("Status: In combat" if room.in_combat else "Status: Peaceful")
+
+        return "\n".join(room_info)
+
+
+    def on_turn_advanced(self, current_turn):
+        for room in self.game_rooms:
+            room.on_turn_advanced(current_turn)
+
+    def display_map(self):
+        map_output = []
+        for room_id, room in self.room_lookup.items():
+            connections = []
+            for direction, target_room_id in room.room_exits.items():
+                # Use room_lookup to resolve the room ID into an actual Room object
+                target_room = self.room_lookup.get(target_room_id)
+                if target_room:
+                    connections.append(f"{direction} -> {target_room.room_id}")
+                else:
+                    connections.append(f"{direction} -> (unknown room)")  # Handle missing rooms gracefully
+            if connections:
+                map_output.append(f"{room.room_name} ({room_id}):\n    " + "\n    ".join(connections))
+            else:
+                map_output.append(f"{room.room_name} ({room_id}):\n    No connections")
+        print("\n".join(map_output))
+
+
+    def to_dict(self):
+        # Update all combatant's current_room before serialization
+        for room in self.game_rooms:
+            for combatant in room.combatants:
+                combatant.current_room = room.room_id
+        return {
+            "game_rooms": [room.to_dict() for room in self.game_rooms],  # Serialize all rooms
+        }
+
+
+    @classmethod
+    def from_dict(cls, data):
+        from game.room import Room
+        room_manager = cls()
+        if "game_rooms" in data:
+            room_manager.game_rooms = [Room.from_dict(room_data) for room_data in data["game_rooms"]]
+
+            # Recreate the room_lookup dictionary
+            for room in room_manager.game_rooms:
+                room_manager.room_lookup[room.room_id] = room
+        else:
+            print("[WARNING] 'game_rooms' key missing in RoomManager data!")
+        return room_manager
+
+
+class MovementManager(PlayerActionManager, RoomManager):
+    def __init__(self, room_manager=None, player=None, companion=None, creature=None):
         self.room_manager = room_manager
         self.player = player
-
+        self.companion = companion
+        self.creature = creature
+        
 
     def move_player(self, player, direction):
         """Handles moving the player to another room."""
@@ -21,17 +172,28 @@ class MovementManager:
         target_room = self.room_manager.room_lookup[target_room_id]
 
         # Remove player from current room
+        current_room.player_in_room = False
+        print(f"[DEBUG Player is in room] Player left room {current_room.room_id}, player is in room {current_room.room_id}: {current_room.player_in_room}")
         current_room.remove_combatant_by_id(player.id)
 
-        # Add player to target room
+        # Add player to target room and reset grudge list
+        player.grudge_list = []
         target_room.add_combatant(player)
+        player.current_room = target_room.room_id
+        # Inherited from PlayerActionManager
+        self.exits()
+
+        # Check hostility after moving
+        target_room.player_in_room = True
+        print(f"[DEBUG Player is in room] Player moved to {target_room.room_id} and is now in room {target_room.room_id}: {target_room.player_in_room}")
+        target_room.detect_hostility(0)
 
         print(f"You move from {current_room.room_name} to {target_room.room_name} in the {direction}.")
 
         return True
 
 
-    def move_entity_command(self, direction, player):
+    def move_player_command(self, direction, player):
         """Handle the move command for the player."""
         if self is None:
             print("Movement system is not initialized.")
@@ -68,97 +230,6 @@ class MovementManager:
 
         return movement_manager
 
-class RoomManager:
-    def __init__(self):
-        self.game_rooms = []  # List of Room objects
-        self.room_lookup = {}  # Maps room_id to Room objects
-
-    def add_room(self, room):
-        room.room_manager = self
-        self.game_rooms.append(room)
-        self.room_lookup[room.room_id] = room  # Add to lookup
-        print(f"[DEBUG ADD ROOM] Room added: {room.room_name} ({room.room_id})")
-
-    def on_turn_advanced(self, current_turn):
-        for room in self.game_rooms:
-            room.on_turn_advanced(current_turn)
-
-    def display_map(self):
-        map_output = []
-        for room_id, room in self.room_lookup.items():
-            connections = []
-            for direction, target_room_id in room.room_exits.items():
-                # Use room_lookup to resolve the room ID into an actual Room object
-                target_room = self.room_lookup.get(target_room_id)
-                if target_room:
-                    connections.append(f"{direction} -> {target_room.room_id}")
-                else:
-                    connections.append(f"{direction} -> (unknown room)")  # Handle missing rooms gracefully
-            if connections:
-                map_output.append(f"{room.room_name} ({room_id}):\n    " + "\n    ".join(connections))
-            else:
-                map_output.append(f"{room.room_name} ({room_id}):\n    No connections")
-        print("\n".join(map_output))
-
-    def get_room_info(self, room_id):
-        """
-        Retrieve and display detailed information about a room based on its room_id.
-        
-        Args:
-            room_id (str): The ID of the room to query.
-        
-        Returns:
-            str: A string representation of the room's details.
-        """
-        # Look up the room in room_lookup
-        room = self.room_lookup.get(room_id)
-        if not room:
-            return f"[ERROR] Room with ID '{room_id}' not found."
-
-        # Compile room details
-        room_info = [
-            f"Room Name: {room.room_name}",
-            f"Room ID: {room.room_id}",
-            "Exits:"
-        ]
-        if room.room_exits:
-            for direction, target_id in room.room_exits.items():
-                room_info.append(f"  {direction} -> {target_id}")
-        else:
-            room_info.append("  No exits")
-
-        # Add additional details if applicable
-        if room.in_combat:
-            room_info.append("Status: In combat")
-        else:
-            room_info.append("Status: Peaceful")
-
-        return "\n".join(room_info)
-
-    def to_dict(self):
-        # Update all combatant's current_room before serialization
-        for room in self.game_rooms:
-            for combatant in room.combatants:
-                combatant.current_room = room.room_id
-        return {
-            "game_rooms": [room.to_dict() for room in self.game_rooms],  # Serialize all rooms
-        }
-
-
-
-    @classmethod
-    def from_dict(cls, data):
-        from game.room import Room
-        room_manager = cls()
-        if "game_rooms" in data:
-            room_manager.game_rooms = [Room.from_dict(room_data) for room_data in data["game_rooms"]]
-
-            # Recreate the room_lookup dictionary
-            for room in room_manager.game_rooms:
-                room_manager.room_lookup[room.room_id] = room
-        else:
-            print("[WARNING] 'game_rooms' key missing in RoomManager data!")
-        return room_manager
 
 
 class TurnManager:
