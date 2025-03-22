@@ -8,10 +8,23 @@ class PlayerActionManager():
         adjacent_rooms = self.room_manager.room_lookup[self.player.current_room].room_exits
         
         for direction, room_id in adjacent_rooms.items():
-            if room_id == self.player.current_room:
-                continue
             print(f"{direction}: {self.room_manager.room_lookup[room_id].room_short_desc}")
 
+    def look(self):
+        """Displays the exits and combatants in the current room."""
+        current_room = self.room_manager.room_lookup[self.player.current_room]
+
+        # Display exits
+        exits_str = ", ".join(current_room.room_exits.keys())
+        print(f"Exits: {exits_str}")
+
+        # Display combatants
+        if current_room.combatants:
+            for combatant in current_room.combatants:
+                if combatant.id != self.player.id:
+                    print(f"  - {combatant.name} (ID: {combatant.id})")
+        else:
+            print("There are no combatants in the room.")
 
 class RoomManager:
     def __init__(self):
@@ -29,6 +42,8 @@ class RoomManager:
         from game.room import Room
         """Handles user input to create and connect multiple rooms dynamically."""
         valid_directions = ['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest', 'up', 'down']
+        cardinal_directions = ['north', 'east', 'south', 'west']
+        diagonal_directions = ['northeast', 'southeast', 'southwest', 'northwest']
         opposite_directions = {'north': 'south', 'east': 'west', 'south': 'north', 'west': 'east', 'up': 'down', 'down': 'up', 'northeast': 'southwest', 'southeast': 'northwest', 'southwest': 'northeast', 'northwest': 'southeast'}
 
         def get_available_directions(room):
@@ -36,38 +51,116 @@ class RoomManager:
             return [direction for direction in valid_directions if direction not in room.room_exits]
 
         available_directions = get_available_directions(starting_room)
-        
+
         if not available_directions:
             print(f"No available directions for {starting_room.room_name} ({starting_room.room_id})!")
             return
-        
+
         print(f"Available directions for {starting_room.room_name}: {available_directions}")
 
+        directions_to_connect = []  # Initialize here
+        user_choice = ""
+
         while True:
-            try:
-                num_rooms = int(input(f"How many rooms do you want to connect to {starting_room.room_id}? (0 to abort) Max: {len(available_directions)} "))
-                if num_rooms == 0:
-                    print("Aborting room creation.")
-                    return
-                if 1 <= num_rooms <= len(available_directions):
-                    break
-                print(f"Invalid input. Please input a number between 0 and {len(available_directions)}.")
-            except ValueError:
-                print("Invalid input. Please enter a number.")
+            user_input = input(f"How do you want to proceed with connecting rooms to {starting_room.room_id}?\n"
+                               f"  - Press Enter to specify the number of rooms manually.\n"
+                               f"  - Type 'all' to connect to all available directions.\n"
+                               f"  - Type 'cardinal' to connect to available cardinal directions (north, east, south, west).\n"
+                               f"  - Type 'diagonal' to connect to available diagonal directions (northeast, southeast, southwest, northwest).\n"
+                               f"  - Type 'abort' to abort room creation.\n"
+                               f"Your choice: ").lower()
 
-        for _ in range(num_rooms):
-            available_directions = get_available_directions(starting_room)  # Refresh available directions
+            if user_input == "":
+                # Proceed with manual room number input
+                user_choice = "manual"
+                while True:
+                    try:
+                        num_rooms = int(input(f"How many rooms do you want to connect to {starting_room.room_id}? (0 to abort) Max: {len(available_directions)} "))
+                        if num_rooms == 0:
+                            print("Aborting room creation.")
+                            return
+                        if 1 <= num_rooms <= len(available_directions):
+                            break
+                        print(f"Invalid input. Please input a number between 0 and {len(available_directions)}.")
+                    except ValueError:
+                        print("Invalid input. Please enter a number.")
 
-            if not available_directions:
-                print(f"No more available directions for {starting_room.room_name}.")
+                for _ in range(num_rooms):
+                    available_directions = get_available_directions(starting_room)  # Refresh available directions
+
+                    if not available_directions:
+                        print(f"No more available directions for {starting_room.room_name}.")
+                        break
+
+                    while True:
+                        direction = input(f"Pick an available direction: {available_directions} ").lower()
+                        if direction in available_directions:
+                            directions_to_connect.append(direction)
+                            break
+                        print(f"Invalid direction. Please choose one from: {available_directions}")
                 break
 
-            while True:
-                direction = input(f"Pick an available direction: {available_directions} ").lower()
-                if direction in available_directions:
-                    break
-                print(f"Invalid direction. Please choose one from: {available_directions}")
+            elif user_input == "all":
+                # Connect to all available directions
+                user_choice = "all"
+                directions_to_connect = available_directions
+                break
 
+            elif user_input == "cardinal":
+                # Connect to available cardinal directions
+                user_choice = "cardinal"
+                directions_to_connect = [d for d in available_directions if d in cardinal_directions]
+                break
+
+            elif user_input == "diagonal":
+                # Connect to available diagonal directions
+                user_choice = "diagonal"
+                directions_to_connect = [d for d in available_directions if d in diagonal_directions]
+                break
+
+            elif user_input == "abort":
+                print("Aborting room creation.")
+                return
+
+            else:
+                print("Invalid choice. Please press Enter, type 'all', 'cardinal', 'diagonal' or 'abort'.")
+                continue
+            break
+
+        # Exclusion logic (moved outside the inner loop)
+        if directions_to_connect and user_choice != "manual":
+            if user_choice == "all":
+                while True:
+                    exclude_input = input(f"Available directions to connect: {directions_to_connect}\n"
+                                        f"Enter directions to exclude (comma-separated, e.g., 'north,east') or press Enter to connect to all: ").lower()
+                    if exclude_input == "":
+                        break  # Skip exclusion
+                    exclude_directions = [d.strip() for d in exclude_input.split(',')]
+                    invalid_directions = [d for d in exclude_directions if d not in directions_to_connect]
+                    if invalid_directions:
+                        print(f"Invalid directions: {', '.join(invalid_directions)}. Please use valid directions.")
+                    else:
+                        directions_to_connect = [d for d in directions_to_connect if d not in exclude_directions]
+                        break
+            else:
+                while True:
+                    exclude_input = input(f"Available directions to connect: {directions_to_connect}\n"
+                                        f"Enter directions to exclude (comma-separated, e.g., 'north,east') or press Enter to skip: ").lower()
+                    if exclude_input == "":
+                        break  # Skip exclusion
+                    exclude_directions = [d.strip() for d in exclude_input.split(',')]
+                    invalid_directions = [d for d in exclude_directions if d not in directions_to_connect]
+                    if invalid_directions:
+                        print(f"Invalid directions: {', '.join(invalid_directions)}. Please use valid directions.")
+                    else:
+                        directions_to_connect = [d for d in directions_to_connect if d not in exclude_directions]
+                        break
+
+            if not directions_to_connect:
+                print("All directions have been excluded. Aborting room creation.")
+                return
+
+        for direction in directions_to_connect:
             opposite_direction = opposite_directions[direction]
             print(f"Creating new room in {direction} direction...")
 
@@ -80,6 +173,9 @@ class RoomManager:
             new_room.room_exits[opposite_direction] = starting_room.room_id
 
             print(f"Connected {starting_room.room_name} to {new_room.room_name} ({new_room.room_id}) via {direction}")
+
+
+
 
     def get_room_info(self, room_id):
         """Retrieve detailed information about a room."""
@@ -190,7 +286,15 @@ class MovementManager(PlayerActionManager, RoomManager):
 
         print(f"You move from {current_room.room_name} to {target_room.room_name} in the {direction}.")
 
+        # Iterate and print combatants in the new room
+        other_combatants = [combatant for combatant in target_room.combatants if combatant.id != player.id]
+        if other_combatants:
+            combatant_strings = [f"{combatant.name}" for combatant in other_combatants]
+            print(", ".join(combatant_strings))
+
         return True
+
+
 
 
     def move_player_command(self, direction, player):
@@ -222,9 +326,19 @@ class MovementManager(PlayerActionManager, RoomManager):
         movement_manager = cls(room_manager=room_manager, player=player)
 
         # Restore the player's current_room if possible
-        if data.get("room_manager_id") and room_manager and player: # ADDED PLAYER
+        if data.get("room_manager_id") and room_manager and player:
             if data["room_manager_id"] in room_manager.room_lookup:
+                # Remove the player from the old room
+                old_room = next((room for room in room_manager.game_rooms if player in room.combatants), None)
+                if old_room:
+                    old_room.remove_combatant_by_id(player.id)
+                # Update the player's current room
                 player.current_room = data["room_manager_id"]
+                # Add the player to the new room
+                room_manager.room_lookup[player.current_room].add_combatant(player)
+                # Update the movement_manager
+                movement_manager.room_manager = room_manager
+                movement_manager.player = player
             else:
                 print(f"[WARNING] Room with ID '{data['room_manager_id']}' not found in RoomManager. Player's current_room not restored.")
 
@@ -256,14 +370,17 @@ class TurnManager:
                 # print(f"Timer running. stop_event.is_set(): {self.stop_event.is_set()}")
                 time.sleep(interval_seconds)
                 self.advance_turn()
+
+                # Passively check all game rooms for hostility on regular intervals
+                # if self.current_turn % 5 == 0 and self.current_turn != 0:
+                #     for room in self.room_manager.game_rooms:
+                #         room.detect_hostility()
+                #         print("Testing passive hostility check for all game rooms:", room.in_combat, room.combatants)
+
             print("[DEBUG TurnManager] Timer thread exiting...")
 
         thread = threading.Thread(target=timer_task, daemon=True)
         thread.start()
-
-
-    # def stop_timer(self):
-    #     self.running = False  # Stop the timer thread gracefully
 
     def to_dict(self):
         from game.room import Room
@@ -277,7 +394,6 @@ class TurnManager:
             "room_count": Room.room_count,  # Include the current room_count value
             "movement_manager": self.movement_manager.to_dict() if self.movement_manager else None
         }
-
 
     @classmethod
     def from_dict(cls, data):
@@ -382,37 +498,117 @@ class CombatantManager:
 
 
 
+import json
+import os
+
 class SaveLoadManager:
     @staticmethod
-    def save_to_file(filename, turn_manager):
-        try:
-            with open(filename, "w") as file:
-                json.dump(turn_manager.to_dict(), file, indent=4)
-            print(f"[DEBUG] Successfully saved TurnManager to {filename}")
-        except Exception as e:
-            print(f"[ERROR] Failed to save game: {e}")
+    def save_to_file(turn_manager):
+        """Saves the game state to a user-specified file."""
+        while True:
+            filename = input("Enter a filename to save the game (or type 'cancel' to abort): ").strip()
+            if filename.lower() == "cancel":
+                print("Save operation cancelled.")
+                return
+            if not filename:
+                print("Filename cannot be empty.")
+                continue
+            if not filename.isalnum() and "_" not in filename:
+                print("Filename can only contain alphanumeric characters and underscores.")
+                continue
+            
+            filepath = os.path.join("serialization", f"{filename}.json")
+            try:
+                os.makedirs(os.path.dirname(filepath), exist_ok=True)  # Ensure directory exists
+                with open(filepath, "w") as file:
+                    json.dump(turn_manager.to_dict(), file, indent=4)
+                print(f"[DEBUG] Successfully saved TurnManager to {filepath}")
+                break  # Exit the loop on successful save
+            except Exception as e:
+                print(f"[ERROR] Failed to save game: {e}")
+
 
     @staticmethod
-    def load_from_file(filename, player):
-        try:
-            with open(filename, "r") as file:
-                data = json.load(file)
-            print(f"[DEBUG] Successfully loaded TurnManager from {filename}")
-            turn_manager = TurnManager.from_dict(data)
-            
-            # Create MovementManager here if it was saved
-            if "movement_manager" in data and data["movement_manager"]:
-                turn_manager.movement_manager = MovementManager.from_dict(data["movement_manager"], turn_manager.room_manager, player)
-            else:
-                print("[DEBUG] No movement_manager data found in save file.")
-            
-            return turn_manager
-        except FileNotFoundError:
-            print(f"[ERROR] Save file not found: {filename}")
+    def load_from_file(player):
+        """Loads the game state from a user-specified file."""
+        serialization_dir = "serialization"
+        available_files = [f for f in os.listdir(serialization_dir) if f.endswith(".json")]
+
+        if not available_files:
+            print("No save files found in the 'serialization/' directory.")
             return None
-        except json.JSONDecodeError:
-            print(f"[ERROR] Invalid JSON data in save file: {filename}")
-            return None
-        except Exception as e:
-            print(f"[ERROR] An unexpected error occurred during loading: {e}")
-            raise  # Re-raise the exception to be handled elsewhere
+
+        print("Available save files:")
+        for i, filename in enumerate(available_files):
+            print(f"{i + 1}. {filename}")
+
+        while True:
+            user_input = input("Enter the number of the file to load (or type 'cancel' to abort): ").strip()
+            if user_input.lower() == "cancel":
+                print("Load operation cancelled.")
+                return None
+            try:
+                choice = int(user_input) - 1
+                if 0 <= choice < len(available_files):
+                    filename = available_files[choice]
+                    filepath = os.path.join(serialization_dir, filename)
+                    with open(filepath, "r") as file:
+                        data = json.load(file)
+                    print(f"[DEBUG] Successfully loaded TurnManager from {filepath}")
+
+                    turn_manager = TurnManager.from_dict(data)
+
+                    # Retrieve room manager from the turn manager
+                    room_manager = turn_manager.room_manager
+                    print(f"[DEBUG load_from_file] Loaded room_manager: {room_manager}")
+                    print(f"[DEBUG load_from_file] room_manager.room_lookup: {room_manager.room_lookup}")
+
+                    # Retrieve movement manager from the turn manager
+                    if turn_manager.movement_manager is None:
+                        print("[DEBUG load_from_file] movement_manager is None. Creating a new one.")
+                        movement_manager = MovementManager(room_manager, player)
+                        turn_manager.movement_manager = movement_manager
+                    else:
+                        print("[DEBUG load_from_file] movement_manager found in turn_manager.")
+                        movement_manager = turn_manager.movement_manager
+                    print(f"[DEBUG load_from_file] Loaded movement_manager: {movement_manager}")
+                    # Set room manager attribute of the movement manager to the loaded room manager
+                    movement_manager.room_manager = room_manager
+                    # Set the player attribute of the movement manager to the loaded player
+                    movement_manager.player = player
+                    print(f"[DEBUG load_from_file] movement_manager.room_manager: {movement_manager.room_manager}")
+                    print(f"[DEBUG load_from_file] movement_manager.player: {movement_manager.player}")
+
+                    # Update the player's current room
+                    print(f"[DEBUG load_from_file] Before updating player.current_room: {player.current_room}")
+                    player.current_room = room_manager.room_lookup[player.current_room].room_id
+                    print(f"[DEBUG load_from_file] After updating player.current_room: {player.current_room}")
+                    # Add the player to the correct room
+                    room_manager.room_lookup[player.current_room].add_combatant(player)
+
+                    # Update the combatants' current room
+                    for room in room_manager.game_rooms:
+                        for combatant in room.combatants:
+                            combatant.current_room = room.room_id
+
+                    # Debug update the grudges
+                    for room in room_manager.game_rooms:
+                        room.detect_hostility(turn_manager)
+
+                    return turn_manager
+                else:
+                    print("Invalid choice. Please enter a number from the list.")
+            except ValueError:
+                print("Invalid input. Please enter a number or 'cancel'.")
+            except FileNotFoundError:
+                print(f"[ERROR] Save file not found: {filename}")
+                return None
+            except json.JSONDecodeError:
+                print(f"[ERROR] Invalid JSON data in save file: {filename}")
+                return None
+            except Exception as e:
+                print(f"[ERROR] An unexpected error occurred during loading: {e}")
+                raise  # Re-raise the exception to be handled elsewhere
+
+
+

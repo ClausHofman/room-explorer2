@@ -7,11 +7,63 @@ from game.managers import RoomManager
 import threading
 from game.shared_resources import stop_event
 
-DEBUG = True
+DEBUG = False
 
 # stop_event = threading.Event()
 print("input_thread.py stop event:", stop_event)
 print(f"input_thread.py stop_event: {id(stop_event)}")
+
+def load_game(player, turn_manager, movement_manager):
+    from game.managers import SaveLoadManager
+    loaded_turn_manager = SaveLoadManager.load_from_file(player)
+    if loaded_turn_manager:
+        # Update the global turn_manager with the loaded one
+        turn_manager.room_manager = loaded_turn_manager.room_manager
+        turn_manager.current_turn = loaded_turn_manager.current_turn
+        turn_manager.movement_manager = loaded_turn_manager.movement_manager
+        # Update the movement_manager
+        movement_manager.room_manager = turn_manager.room_manager
+        movement_manager.player = player
+
+        # Retrieve the room manager
+        room_manager = turn_manager.room_manager
+
+        # Find the player in the loaded data
+        player_data = None
+        for room in room_manager.game_rooms:
+            for combatant in room.combatants:
+                if combatant.id == player.id:
+                    player_data = combatant
+                    break
+            if player_data:
+                break
+
+        if player_data:
+            # Get the player's current_room from the loaded data
+            loaded_player_current_room_id = player_data.current_room
+
+            # Remove the player from the old room (if present)
+            old_room = next((room for room in room_manager.game_rooms if player in room.combatants), None)
+            if old_room:
+                old_room.remove_combatant_by_id(player.id)
+
+            # Add the player to the new room
+            new_room = room_manager.room_lookup.get(loaded_player_current_room_id)
+            if new_room:
+                new_room.add_combatant(player)
+                # Update the player's current_room
+                player.current_room = loaded_player_current_room_id
+                print(f"[DEBUG load_game] Player moved to room: {loaded_player_current_room_id}")
+            else:
+                print(f"[ERROR load_game] Room with ID '{loaded_player_current_room_id}' not found!")
+        else:
+            print("[ERROR load_game] Player not found in loaded data!")
+
+        print("Game loaded successfully!")
+    else:
+        print("Failed to load game.")
+
+
 
 def input_thread(player, movement_manager, turn_manager):
     from game.managers import SaveLoadManager
@@ -24,6 +76,13 @@ def input_thread(player, movement_manager, turn_manager):
         "exits": {
             "description": "Show available exits",
             "handler": lambda: movement_manager.exits(),
+        },
+        "look": {
+            "description": "Look around the current room",
+            "handler": lambda: movement_manager.look(),
+            "shortcuts": {
+                "l": "look"
+            }
         },
         "move": {
             "description": "Move in a specified direction (e.g., 'move north' or use shortcuts 'n', 's', 'e', 'w', 'ne', 'se', 'nw', 'sw', 'd', 'u')",
@@ -52,8 +111,12 @@ def input_thread(player, movement_manager, turn_manager):
         },
             "save": {
             "description": "Save the current game state",
-            "handler": lambda: SaveLoadManager.save_to_file("serialization/save_game.json", turn_manager), # ADDED SAVE COMMAND
+            "handler": lambda: SaveLoadManager.save_to_file(turn_manager),
         },
+            "load": {
+            "description": "Load a saved game state",
+            "handler": lambda: load_game(player, turn_manager, movement_manager),
+        },        
     }
 
 
@@ -77,8 +140,20 @@ def input_thread(player, movement_manager, turn_manager):
                     continue
                 command = parts[0]
                 args = parts[1:]
+                
+                # **Check for shortcuts first**
+                shortcut_used = False
+                for cmd_name, cmd_details in commands.items():
+                    if "shortcuts" in cmd_details and command in cmd_details["shortcuts"] and not cmd_details.get("movement_command", False):
+                        # Execute the command associated with the shortcut
+                        commands[cmd_name]["handler"](*args)
+                        shortcut_used = True
+                        break  # Exit the loop after finding a shortcut
 
-                # **Check if the command is a movement command first**
+                if shortcut_used:
+                    continue  # Skip normal command processing
+
+                # **Check if the command is a movement command**
                 if command == "move" or command in commands["move"].get("shortcuts", {}):
                     if command in commands["move"]["shortcuts"]:  
                         # Convert shortcut to full movement direction

@@ -13,7 +13,7 @@ movement_manager = None
 room_manager = None
 player_action_manager = None
 start_current_player_room = None
-TURN_INTERVAL = 5
+TURN_INTERVAL = 1000
 
 
 
@@ -85,7 +85,11 @@ def initialize_game():
     room3.connect(room1, "west")
 
     room1.add_combatant(player)
-    movement_manager.move_player(player, "east")
+
+
+    print("---------------- DEBUG ROOM LOOKUP ------------------")
+    for id, exits in room_manager.room_lookup.items():
+        print(f"Room id: {id}, exits: {exits.room_exits}")
 
     # print(player.current_room)
     # movement_manager.move_entity(player, "north")
@@ -120,23 +124,23 @@ def initialize_game():
     # print(player.stats["health"])
 
     # SAVE AND LOAD
-    SaveLoadManager.save_to_file("serialization/save_game.json", turn_manager)
+    # SaveLoadManager.save_to_file("serialization/save_game.json", turn_manager)
 
     # print(RoomManager)  # Should display <class 'RoomManager'>
     # print(hasattr(RoomManager, "from_dict"))  # Should display True
 
 
-    room_manager = None
-    turn_manager = None
+    # room_manager = None
+    # turn_manager = None
     # # # Load the game and optional data
 
-    turn_manager = SaveLoadManager.load_from_file(
-        "serialization/save_game.json", player)
+    # turn_manager = SaveLoadManager.load_from_file(
+    #     "serialization/save_game.json", player)
 
     # Check if loading was successful
-    if turn_manager is None:
-        print("[ERROR] Failed to load the game. Exiting.")
-        return None  # Or handle the error in another way
+    # if turn_manager is None:
+    #     print("[ERROR] Failed to load the game. Exiting.")
+    #     return None  # Or handle the error in another way
 
 
     print("NEW DEBUG:")
@@ -172,7 +176,7 @@ def initialize_game():
         for combatant in room.combatants:
             combatant.current_room = room.room_id
 
-    # Update the grudges
+    # Debug update the grudges
     for room in room_manager.game_rooms:
         room.detect_hostility(turn_manager)
 
@@ -181,7 +185,7 @@ def initialize_game():
     print("Turn interval set to:", turn_interval)
 
     start_current_player_room = room_manager.room_lookup[player.current_room]
-    
+
     return {"movement_manager": movement_manager, "player": player, "start_current_player_room": start_current_player_room, "turn_manager": turn_manager}
 
 

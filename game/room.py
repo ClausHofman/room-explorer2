@@ -78,6 +78,10 @@ class Room:
         ]
         reconstructed_room.combatants = deserialized_combatants
 
+        # Update the current_room of the combatants
+        for combatant in reconstructed_room.combatants:
+            combatant.current_room = reconstructed_room.room_id
+
         # Deserialize entities
         deserialized_entities = [
             globals()[entity_data["type"]].from_dict(entity_data["data"]) for entity_data in room_data["entities"]
@@ -85,6 +89,7 @@ class Room:
         reconstructed_room.entities = deserialized_entities
 
         return reconstructed_room
+
 
     def connect(self, target_room, direction="Unknown", **room_ids):
         """
@@ -213,7 +218,7 @@ class Room:
         self.update_grudges(combatant)
 
 
-    def detect_hostility(self, turn_manager):
+    def detect_hostility(self, turn_manager=None):
         print("[DEBUG] Detecting hostility...")
         for combatant in self.combatants:
             if combatant.is_alive():
@@ -241,7 +246,7 @@ class Room:
         # Debugging: Print combatants and their grudges
         temp = []
         for c in self.combatants:
-            print(f"[DEBUG detect_hostility] {c.name} grudges: {c.grudge_list}")
+            # print(f"[DEBUG detect_hostility] {c.name} grudges: {c.grudge_list}")
             temp += c.grudge_list
         if temp:
             self.start_combat(0)
