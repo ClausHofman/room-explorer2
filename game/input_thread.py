@@ -28,6 +28,7 @@ def load_game(player, turn_manager, movement_manager):
         # Retrieve the room manager
         room_manager = turn_manager.room_manager
 
+
         # Find the player in the loaded data
         player_data = None
         for room in room_manager.game_rooms:
@@ -41,6 +42,7 @@ def load_game(player, turn_manager, movement_manager):
         if player_data:
             # Get the player's current_room from the loaded data
             loaded_player_current_room_id = player_data.current_room
+            room_manager.player = player
 
             # Remove the player from the old room (if present)
             old_room = next((room for room in room_manager.game_rooms if player in room.combatants), None)
