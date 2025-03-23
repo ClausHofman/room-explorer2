@@ -27,13 +27,14 @@ def main():
     
     user_input_thread.start()
 
-    # turn_manager = start_game["turn_manager"]
-    # player_action_manager = start_game["player_action_manager"]
-    # player = start_game["player"]
-    # movement_manager = turn_manager.movement_manager
-    # room_manager = turn_manager.room_manager
-    # movement_manager.move_player(player, "north")
-    # player_action_manager.exits()
+    turn_manager = start_game["turn_manager"]
+    room_manager = start_game["room_manager"]
+    player_action_manager = start_game["player_action_manager"]
+    player = start_game["player"]
+    movement_manager = turn_manager.movement_manager
+    room_manager = turn_manager.room_manager
+    movement_manager.move_player(player, "north")
+    player_action_manager.exits()
 
 
     print("\033[38;5;76m Type 'list_commands' for available commands. \033[38;5;76m")

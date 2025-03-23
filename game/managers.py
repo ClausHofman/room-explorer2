@@ -2,13 +2,16 @@ import json, threading, copy, time
 
 
 class PlayerActionManager():
-
+    def __init__(self, room_manager=None, player=None):
+        self.room_manager = room_manager
+        self.player = player
+    
     # Called when the player moves with MovementManager
     def exits(self):
         adjacent_rooms = self.room_manager.room_lookup[self.player.current_room].room_exits
-        
         for direction, room_id in adjacent_rooms.items():
             print(f"{direction}: {self.room_manager.room_lookup[room_id].room_short_desc}")
+
 
     def look(self):
         """Displays the exits and combatants in the current room."""
@@ -26,10 +29,37 @@ class PlayerActionManager():
         else:
             print("There are no combatants in the room.")
 
+
+
 class RoomManager:
-    def __init__(self):
+    def __init__(self, player=None):
         self.game_rooms = []  # List of Room objects
         self.room_lookup = {}  # Maps room_id to Room objects
+        self.player = player
+
+
+    def to_dict(self):
+        # Update all combatant's current_room before serialization
+        for room in self.game_rooms:
+            for combatant in room.combatants:
+                combatant.current_room = room.room_id
+        return {
+            "game_rooms": [room.to_dict() for room in self.game_rooms],  # Serialize all rooms
+        }
+
+    @classmethod
+    def from_dict(cls, data):
+        from game.room import Room
+        room_manager = cls()
+        if "game_rooms" in data:
+            room_manager.game_rooms = [Room.from_dict(room_data) for room_data in data["game_rooms"]]
+
+            # Recreate the room_lookup dictionary
+            for room in room_manager.game_rooms:
+                room_manager.room_lookup[room.room_id] = room
+        else:
+            print("[WARNING] 'game_rooms' key missing in RoomManager data!")
+        return room_manager
 
     def add_room(self, room):
         """Registers a new room in the RoomManager."""
@@ -175,8 +205,6 @@ class RoomManager:
             print(f"Connected {starting_room.room_name} to {new_room.room_name} ({new_room.room_id}) via {direction}")
 
 
-
-
     def get_room_info(self, room_id):
         """Retrieve detailed information about a room."""
         room = self.room_lookup.get(room_id)
@@ -204,47 +232,108 @@ class RoomManager:
         for room in self.game_rooms:
             room.on_turn_advanced(current_turn)
 
-    def display_map(self):
-        map_output = []
-        for room_id, room in self.room_lookup.items():
-            connections = []
-            for direction, target_room_id in room.room_exits.items():
-                # Use room_lookup to resolve the room ID into an actual Room object
-                target_room = self.room_lookup.get(target_room_id)
-                if target_room:
-                    connections.append(f"{direction} -> {target_room.room_id}")
-                else:
-                    connections.append(f"{direction} -> (unknown room)")  # Handle missing rooms gracefully
-            if connections:
-                map_output.append(f"{room.room_name} ({room_id}):\n    " + "\n    ".join(connections))
-            else:
-                map_output.append(f"{room.room_name} ({room_id}):\n    No connections")
-        print("\n".join(map_output))
+    def generate_map(self, size, search_depth=3):
+        MAX_GRID_SIZE = 100  # Set a reasonable maximum size
+        if size > MAX_GRID_SIZE:
+            raise ValueError(f"Grid size too large! Maximum allowed size is {MAX_GRID_SIZE}.")
+
+        grid = [["#" for _ in range(size * 2 - 1)] for _ in range(size * 2 - 1)]
+        middle = size // 2 * 2
+        grid[middle][middle] = "O"
+
+        map_direction_offsets = {
+        "north": (-1, 0),
+        "south": (1, 0),
+        "east": (0, 1),
+        "west": (0, -1),
+        "northeast": (-1, 1),
+        "northwest": (-1, -1),
+        "southeast": (1, 1),
+        "southwest": (1, -1)
+    }
+        map_direction_representations = {
+        "north": "|",
+        "south": "|",
+        "east": "-",
+        "west": "-",
+        "northeast": "/",
+        "southeast": "\\",
+        "southwest": "/",
+        "northwest": "\\"
+    }
+
+        middle_cell = f"row{size//2 + 1}col{size//2 + 1}"  # Calculate the middle cell
+        print(f"[DEBUG] Calculated middle_cell: {middle_cell}")
+
+        # Get the player's current room (middle_cell) exits
+        current_room = self.room_lookup[self.player.current_room]
+        print(f"[DEBUG] Current room: {self.player.current_room}, Exits: {current_room.room_exits}")
+
+        # Step 1: Initialize new_rooms with the middle_cell and its exits
+        new_rooms = {middle_cell: current_room.room_exits or {}}
+        found_room_ids = [self.player.current_room]  # Track visited rooms by ID
+        current_depth = 1
+
+        print(f"[DEBUG] Starting search with depth: {search_depth}")
+
+        # Step 2: Iterate through rooms up to the search depth
+        while current_depth <= search_depth:
+            print(f"[DEBUG] Current search depth: {current_depth}, Rooms to process: {list(new_rooms.keys())}")
+
+            # Process each room in new_rooms
+            for cell_key in list(new_rooms.keys()):
+                # Extract room row/col positions
+                row, col = map(int, [cell_key[3:cell_key.index("col")], cell_key[cell_key.index("col") + 3:]])
+                room_row, room_col = (row - 1) * 2, (col - 1) * 2  # Adjust for grid with paths
+                print(f"[DEBUG] Processing cell_key: {cell_key} (Room coordinates: {room_row}, {room_col})")
+
+                # Process each direction and the connected room
+                for direction, room_id in new_rooms[cell_key].items():
+                    print(f"[DEBUG] Checking direction: {direction}, Target room_id: {room_id}")
+
+                    if room_id in found_room_ids:
+                        print(f"[DEBUG] Room {room_id} already processed, skipping.")
+                        continue
+
+                    found_room_ids.append(room_id)
+                    print(f"[DEBUG] Added room_id to found_room_ids: {found_room_ids}")
+
+                    row_offset, col_offset = map_direction_offsets[direction]
+                    path_row, path_col = room_row + row_offset, room_col + col_offset
+                    next_room_row, next_room_col = room_row + row_offset * 2, room_col + col_offset * 2
+                    print(f"[DEBUG] Path position: ({path_row}, {path_col}), Next room position: ({next_room_row}, {next_room_col})")
+
+                    # Update the path in the grid
+                    if 0 <= path_row < len(grid) and 0 <= path_col < len(grid):
+                        grid[path_row][path_col] = map_direction_representations[direction]
+                        print(f"[DEBUG] Updated path: {grid[path_row][path_col]} at ({path_row}, {path_col})")
+
+                    # Update the new room in the grid
+                    if 0 <= next_room_row < len(grid) and 0 <= next_room_col < len(grid):
+                        grid[next_room_row][next_room_col] = "o"
+                        print(f"[DEBUG] Updated room: 'o' at ({next_room_row}, {next_room_col})")
+
+                    # Perform a lookup for the connected room's exits
+                    if room_id in self.room_lookup:
+                        room_exits = self.room_lookup[room_id].room_exits or {}
+                        new_cell_key = f"row{next_room_row//2 + 1}col{next_room_col//2 + 1}"
+                        if new_cell_key not in new_rooms:
+                            new_rooms[new_cell_key] = room_exits
+                            print(f"[DEBUG] Added new cell_key: {new_cell_key} with exits: {room_exits}")
+
+                # Remove the processed room from new_rooms
+                new_rooms.pop(cell_key)  # Safely remove the processed room
+                print(f"[DEBUG] Removed processed cell_key: {cell_key}")
+
+            current_depth += 1
+            print(f"[DEBUG] Moving to next depth level.")
+
+        # Step 3: Print the final grid
+        print(f"[DEBUG] Final grid:")
+        for row in grid:
+            print("".join(row))
 
 
-    def to_dict(self):
-        # Update all combatant's current_room before serialization
-        for room in self.game_rooms:
-            for combatant in room.combatants:
-                combatant.current_room = room.room_id
-        return {
-            "game_rooms": [room.to_dict() for room in self.game_rooms],  # Serialize all rooms
-        }
-
-
-    @classmethod
-    def from_dict(cls, data):
-        from game.room import Room
-        room_manager = cls()
-        if "game_rooms" in data:
-            room_manager.game_rooms = [Room.from_dict(room_data) for room_data in data["game_rooms"]]
-
-            # Recreate the room_lookup dictionary
-            for room in room_manager.game_rooms:
-                room_manager.room_lookup[room.room_id] = room
-        else:
-            print("[WARNING] 'game_rooms' key missing in RoomManager data!")
-        return room_manager
 
 
 class MovementManager(PlayerActionManager, RoomManager):
@@ -276,6 +365,10 @@ class MovementManager(PlayerActionManager, RoomManager):
         player.grudge_list = []
         target_room.add_combatant(player)
         player.current_room = target_room.room_id
+
+        # Show map
+        # self.room_manager.display_map()
+        
         # Inherited from PlayerActionManager
         self.exits()
 
@@ -609,6 +702,3 @@ class SaveLoadManager:
             except Exception as e:
                 print(f"[ERROR] An unexpected error occurred during loading: {e}")
                 raise  # Re-raise the exception to be handled elsewhere
-
-
-

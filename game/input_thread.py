@@ -4,7 +4,7 @@ from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.completion import WordCompleter
 from game.helper_functions import CommandCompleter
 from game.managers import RoomManager
-import threading
+import threading, time
 from game.shared_resources import stop_event
 
 DEBUG = False
@@ -78,11 +78,15 @@ def input_thread(player, movement_manager, turn_manager):
             "handler": lambda: movement_manager.exits(),
         },
         "look": {
-            "description": "Look around the current room",
+            "description": "Look around the current room (shortcut: 'l')",
             "handler": lambda: movement_manager.look(),
             "shortcuts": {
                 "l": "look"
             }
+        },
+        "map": {
+            "description": "Display a map with nearby paths",
+            "handler": lambda: turn_manager.room_manager.generate_map(size=7)
         },
         "move": {
             "description": "Move in a specified direction (e.g., 'move north' or use shortcuts 'n', 's', 'e', 'w', 'ne', 'se', 'nw', 'sw', 'd', 'u')",
@@ -116,7 +120,7 @@ def input_thread(player, movement_manager, turn_manager):
             "load": {
             "description": "Load a saved game state",
             "handler": lambda: load_game(player, turn_manager, movement_manager),
-        },        
+        },
     }
 
 
@@ -140,7 +144,8 @@ def input_thread(player, movement_manager, turn_manager):
                     continue
                 command = parts[0]
                 args = parts[1:]
-                
+
+
                 # **Check for shortcuts first**
                 shortcut_used = False
                 for cmd_name, cmd_details in commands.items():

@@ -49,12 +49,12 @@ def initialize_game():
         status_data=combatant_data.creature_status_data
     )
 
-    player_action_manager = PlayerActionManager()
     turn_manager = TurnManager(stop_event)
-    room_manager = RoomManager()
+    room_manager = RoomManager(player=player)
     turn_manager.room_manager = room_manager
     movement_manager = MovementManager(room_manager, player)
     movement_manager.turn_manager = turn_manager
+    player_action_manager = PlayerActionManager(room_manager=room_manager, player=player)
 
 
     
@@ -87,6 +87,8 @@ def initialize_game():
     room1.add_combatant(player)
 
 
+
+    # print(player_action_manager)
     print("---------------- DEBUG ROOM LOOKUP ------------------")
     for id, exits in room_manager.room_lookup.items():
         print(f"Room id: {id}, exits: {exits.room_exits}")
@@ -143,11 +145,9 @@ def initialize_game():
     #     return None  # Or handle the error in another way
 
 
-    print("NEW DEBUG:")
     # Retrieve room manager from the turn manager
     room_manager = turn_manager.room_manager
-    print(f"[DEBUG initialize_game] Loaded room_manager: {room_manager}")
-    print(f"[DEBUG initialize_game] room_manager.room_lookup: {room_manager.room_lookup}")
+
 
     # Retrieve movement manager from the turn manager
     if turn_manager.movement_manager is None:
@@ -186,7 +186,12 @@ def initialize_game():
 
     start_current_player_room = room_manager.room_lookup[player.current_room]
 
-    return {"movement_manager": movement_manager, "player": player, "start_current_player_room": start_current_player_room, "turn_manager": turn_manager}
+    return {"movement_manager": movement_manager,
+            "player": player,
+            "start_current_player_room": start_current_player_room,
+            "turn_manager": turn_manager,
+            "player_action_manager": player_action_manager,
+            "room_manager": room_manager}
 
 
 
