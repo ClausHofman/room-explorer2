@@ -289,6 +289,8 @@ class RoomManager:
 
                 # Process each direction and the connected room
                 for direction, room_id in new_rooms[cell_key].items():
+                    if direction == "up" or direction == "down":
+                        continue
                     print(f"[DEBUG] Checking direction: {direction}, Target room_id: {room_id}")
 
                     if room_id in found_room_ids:
@@ -328,6 +330,7 @@ class RoomManager:
             current_depth += 1
             print(f"[DEBUG] Moving to next depth level.")
 
+        grid[middle][middle] = "O"
         # Step 3: Print the final grid
         print(f"[DEBUG] Final grid:")
         for row in grid:
