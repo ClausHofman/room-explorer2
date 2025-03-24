@@ -219,7 +219,7 @@ class Room:
 
 
     def detect_hostility(self, turn_manager=None):
-        print("[DEBUG] Detecting hostility...")
+        # print("[DEBUG] Detecting hostility...")
         for combatant in self.combatants:
             if combatant.is_alive():
                 # Hates everyone
@@ -241,7 +241,7 @@ class Room:
                             combatant.add_to_grudge_list(other.id)
                             other.add_to_grudge_list(combatant.id)
 
-        print("[DEBUG] Hostility detection complete.")
+        # print("[DEBUG] Hostility detection complete.")
 
         # Debugging: Print combatants and their grudges
         temp = []

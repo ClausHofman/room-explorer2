@@ -166,9 +166,9 @@ def initialize_game():
     print(f"[DEBUG initialize_game] movement_manager.player: {movement_manager.player}")
 
     # Update the player's current room
-    print(f"[DEBUG initialize_game] Before updating player.current_room: {player.current_room}")
+    # print(f"[DEBUG initialize_game] Before updating player.current_room: {player.current_room}")
     player.current_room = room_manager.room_lookup[player.current_room].room_id
-    print(f"[DEBUG initialize_game] After updating player.current_room: {player.current_room}")
+    # print(f"[DEBUG initialize_game] After updating player.current_room: {player.current_room}")
 
 
     # Update the combatants' current room
@@ -351,3 +351,72 @@ class CommandCompleter(Completer):
     #     [f"{cmd} - {details['description']}" for cmd, details in commands.items()],
     #     ignore_case=True
     # )
+
+
+def remove_creature_by_id(room_manager, player):
+    current_room = room_manager.room_lookup[player.current_room]
+    for combatant in current_room.combatants:
+                if combatant.id != player.id:
+                    print(combatant.id)
+    while True:
+            try:
+                creature_id = str(input("Type id of creature to remove (Enter to abort):\n"))
+                if creature_id == "":
+                    print("Aborting.")
+                    return
+                for combatant in current_room.combatants:
+                    if combatant.id == creature_id and combatant.id != player.id:
+                        creature_to_remove = combatant
+                    else:
+                        print("Unable to remove yourself or invalid combatant_id")
+                        continue
+                current_room.combatants.remove(creature_to_remove)
+                print(f"{combatant.name} blinks out from existence.")
+                break
+            except ValueError:
+                ("Enter a valid combatant_id string or press Enter to abort.")
+
+
+def remove_creature_by_id(room_manager, player):
+    """
+    Removes a creature from the player's current room by ID, except the player themselves.
+
+    Args:
+        room_manager: The RoomManager instance containing room and combatant data.
+        player: The player object (the one performing the removal).
+    """
+    current_room = room_manager.room_lookup[player.current_room]
+
+    # List all combatants in the current room (excluding the player)
+    has_other_creatures = False
+    for combatant in current_room.combatants:
+        if combatant.id != player.id:
+            print(f"- {combatant.id}: {combatant.name}")
+            has_other_creatures = True
+
+    if not has_other_creatures:
+        print("No other creatures to remove in this room.")
+        return
+
+    while True:
+        creature_id = input("Type the ID of the creature to remove (or press Enter to abort):\n").strip()
+        if creature_id == "":
+            print("Aborting.")
+            return
+
+        # Search for the combatant by ID in the current room
+        creature_to_remove = next(
+            (combatant for combatant in current_room.combatants if combatant.id == creature_id), 
+            None
+        )
+
+        # Check if the combatant exists and is not the player
+        if creature_to_remove is None:
+            print("Invalid combatant ID. Please try again.")
+        elif creature_to_remove.id == player.id:
+            print("Unable to remove yourself or invalid combatant_id.")
+        else:
+            # Remove the combatant and update the room
+            current_room.combatants.remove(creature_to_remove)
+            print(f"{creature_to_remove.name} snaps out from existence.")
+            break

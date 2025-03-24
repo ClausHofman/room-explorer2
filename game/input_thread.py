@@ -6,64 +6,68 @@ from game.helper_functions import CommandCompleter
 from game.managers import RoomManager
 import threading, time
 from game.shared_resources import stop_event
+from game.helper_functions import remove_creature_by_id
 
 DEBUG = False
+turn_manager = None
+room_manager = None
+player = None
 
 # stop_event = threading.Event()
 print("input_thread.py stop event:", stop_event)
 print(f"input_thread.py stop_event: {id(stop_event)}")
 
+
 def load_game(player, turn_manager, movement_manager):
     from game.managers import SaveLoadManager
+    print("[DEBUG load_game] Starting to load the game.")
+
+    print(f"[DEBUG load_game] Before loading: player.current_room = {player.current_room}")
+
     loaded_turn_manager = SaveLoadManager.load_from_file(player)
     if loaded_turn_manager:
+        print("[DEBUG load_game] Successfully loaded TurnManager from file.")
+        
         # Update the global turn_manager with the loaded one
+        print("[DEBUG load_game] Updating turn_manager with loaded data.")
         turn_manager.room_manager = loaded_turn_manager.room_manager
         turn_manager.current_turn = loaded_turn_manager.current_turn
         turn_manager.movement_manager = loaded_turn_manager.movement_manager
+
         # Update the movement_manager
+        print("[DEBUG load_game] Updating movement_manager with the loaded TurnManager's room_manager.")
         movement_manager.room_manager = turn_manager.room_manager
         movement_manager.player = player
 
         # Retrieve the room manager
         room_manager = turn_manager.room_manager
-
+        print(f"[DEBUG load_game] Room manager retrieved. Total game rooms: {len(room_manager.game_rooms)}.")
 
         # Find the player in the loaded data
         player_data = None
         for room in room_manager.game_rooms:
+            print(f"[DEBUG load_game] Checking room: {room.room_id} for player.")
             for combatant in room.combatants:
                 if combatant.id == player.id:
+                    print(f"[DEBUG load_game] Player with ID {player.id} found in room {room.room_id}.")
                     player_data = combatant
+                    print(f"Player data: {player_data}")
                     break
             if player_data:
                 break
 
         if player_data:
             # Get the player's current_room from the loaded data
-            loaded_player_current_room_id = player_data.current_room
+            player.current_room = player_data.current_room
+            
             room_manager.player = player
 
-            # Remove the player from the old room (if present)
-            old_room = next((room for room in room_manager.game_rooms if player in room.combatants), None)
-            if old_room:
-                old_room.remove_combatant_by_id(player.id)
-
-            # Add the player to the new room
-            new_room = room_manager.room_lookup.get(loaded_player_current_room_id)
-            if new_room:
-                new_room.add_combatant(player)
-                # Update the player's current_room
-                player.current_room = loaded_player_current_room_id
-                print(f"[DEBUG load_game] Player moved to room: {loaded_player_current_room_id}")
-            else:
-                print(f"[ERROR load_game] Room with ID '{loaded_player_current_room_id}' not found!")
         else:
-            print("[ERROR load_game] Player not found in loaded data!")
+            print(f"[ERROR load_game] Player with ID {player.id} not found in loaded data!")
 
-        print("Game loaded successfully!")
+        print("[DEBUG load_game] Game loaded successfully!")
     else:
-        print("Failed to load game.")
+        print("[ERROR load_game] Failed to load game.")
 
 
 
@@ -71,6 +75,10 @@ def input_thread(player, movement_manager, turn_manager):
     from game.managers import SaveLoadManager
 
     commands = {
+        "remove_creature": {
+            "description": "Provide a combatant_id to remove a creature",
+            "handler": lambda: remove_creature_by_id(turn_manager.room_manager, player)
+        },
         "list_commands": {
             "description": "List all available commands",
             "handler": lambda: print("Available commands:\n" + "\n".join(f"{cmd}: {details['description']}\n" for cmd, details in commands.items())),

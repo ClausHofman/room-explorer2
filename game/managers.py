@@ -488,25 +488,13 @@ class MovementManager(PlayerActionManager, RoomManager):
 
     @classmethod
     def from_dict(cls, data, room_manager, player):
+        # TODO: Not sure how useful or needed this is
         """Create a MovementManager from a dictionary."""
         movement_manager = cls(room_manager=room_manager, player=player)
 
-        # Restore the player's current_room if possible
-        if data.get("room_manager_id") and room_manager and player:
-            if data["room_manager_id"] in room_manager.room_lookup:
-                # Remove the player from the old room
-                old_room = next((room for room in room_manager.game_rooms if player in room.combatants), None)
-                if old_room:
-                    old_room.remove_combatant_by_id(player.id)
-                # Update the player's current room
-                player.current_room = data["room_manager_id"]
-                # Add the player to the new room
-                room_manager.room_lookup[player.current_room].add_combatant(player)
-                # Update the movement_manager
-                movement_manager.room_manager = room_manager
-                movement_manager.player = player
-            else:
-                print(f"[WARNING] Room with ID '{data['room_manager_id']}' not found in RoomManager. Player's current_room not restored.")
+        # Update the movement_manager
+        movement_manager.room_manager = room_manager
+        movement_manager.player = player
 
         return movement_manager
 
@@ -722,6 +710,7 @@ class SaveLoadManager:
                         data = json.load(file)
                     print(f"[DEBUG] Successfully loaded TurnManager from {filepath}")
 
+                    # Deserialize the TurnManager and retrieve the room manager
                     turn_manager = TurnManager.from_dict(data)
 
                     # Retrieve room manager from the turn manager
@@ -738,24 +727,56 @@ class SaveLoadManager:
                         print("[DEBUG load_from_file] movement_manager found in turn_manager.")
                         movement_manager = turn_manager.movement_manager
                     print(f"[DEBUG load_from_file] Loaded movement_manager: {movement_manager}")
-                    # Set room manager attribute of the movement manager to the loaded room manager
+
+                    # Set the room manager and player attributes of the movement manager
                     movement_manager.room_manager = room_manager
-                    # Set the player attribute of the movement manager to the loaded player
                     movement_manager.player = player
                     print(f"[DEBUG load_from_file] movement_manager.room_manager: {movement_manager.room_manager}")
                     print(f"[DEBUG load_from_file] movement_manager.player: {movement_manager.player}")
 
-                    # Update the player's current room
+                    # Before updating the player's data
                     print(f"[DEBUG load_from_file] Before updating player.current_room: {player.current_room}")
-                    player.current_room = room_manager.room_lookup[player.current_room].room_id
-                    print(f"[DEBUG load_from_file] After updating player.current_room: {player.current_room}")
-                    # Add the player to the correct room
-                    room_manager.room_lookup[player.current_room].add_combatant(player)
+
+                    # Look through all rooms to find the corresponding player combatant
+                    updated_player_data = None  # Placeholder for updated player combatant data
+                    for room in room_manager.game_rooms:
+                        for combatant in room.combatants:
+                            print("Searching combatants during loading:", combatant.id, combatant.name)
+                            if combatant.id.startswith("player"):  # Assuming the player is identified this way
+                                print(f"[DEBUG load_from_file] Found player combatant with ID: {combatant.id} in room {room.room_id}")
+                                # Update the player's attributes with the combatant's data
+                                for attr, value in vars(combatant).items():
+                                    setattr(player, attr, value)  # Dynamically update player attributes
+                                print(f"[DEBUG load_from_file] Updated player data with combatant data: {vars(player)}")
+                                updated_player_data = combatant
+                                break
+                        if updated_player_data:
+                            break
+
+                    # Ensure the player's current room is set correctly
+                    if updated_player_data:
+                        player.current_room = updated_player_data.current_room
+                        print(f"[DEBUG load_from_file] Player's current room set to: {player.current_room}")
+                    else:
+                        print("[ERROR load_from_file] Player combatant not found during loading!")
+
+                    # Remove any duplicates and ensure proper room transition
+                    if player.current_room in room_manager.room_lookup:
+                        print(f"[DEBUG load_from_file] Transitioning player to room: {player.current_room}")
+                        # Remove any existing player combatants in the player's current room
+                        current_room = room_manager.room_lookup[player.current_room]
+                        current_room.remove_combatant_by_id(player.id)
+                        # Add the up-to-date player to the current room
+                        current_room.add_combatant(player)
+                    else:
+                        print(f"[ERROR load_from_file] Room with ID '{player.current_room}' not found in room lookup!")
+
 
                     # Update the combatants' current room
                     for room in room_manager.game_rooms:
                         for combatant in room.combatants:
-                            combatant.current_room = room.room_id
+                            if not combatant.id.startswith("player"):
+                                combatant.current_room = room.room_id
 
                     # Debug update the grudges
                     for room in room_manager.game_rooms:
