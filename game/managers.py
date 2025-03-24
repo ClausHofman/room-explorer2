@@ -97,10 +97,64 @@ class RoomManager:
                                f"  - Type 'all' to connect to all available directions.\n"
                                f"  - Type 'cardinal' to connect to available cardinal directions (north, east, south, west).\n"
                                f"  - Type 'diagonal' to connect to available diagonal directions (northeast, southeast, southwest, northwest).\n"
+                               f"  - Type 'connect' to connect current room to a specific room id.\n"
                                f"  - Type 'abort' to abort room creation.\n"
                                f"Your choice: ").lower()
 
-            if user_input == "":
+            if user_input == "connect":
+                while True:
+                    try:
+                        room_id_to_connect = str(input(f"Please type the room_id of an existing room that is not this room ({starting_room.room_id}). (Enter to abort)\n")).lower()
+                        if room_id_to_connect == "":
+                            print("Cancelling operation.")
+                            return
+                        if room_id_to_connect not in self.room_lookup:
+                            print(f"Room with ID '{room_id_to_connect}' not found. Please try again.")
+                            continue
+                        if room_id_to_connect == starting_room.room_id:
+                            print("You cannot connect to the current room. Please try again.")
+                            continue
+
+                        connection_type = str(input(f"Special or normal connection? (s/n) (Enter to abort)\n")).lower()
+                        if connection_type == "":
+                            print("Cancelling operation.")
+                            return
+                        if connection_type == "n":
+                            available_directions = get_available_directions(starting_room)
+                            if not available_directions:
+                                print(f"No available directions for {starting_room.room_name}.")
+                                break
+                            direction_for_connection = str(input(f"Pick an available direction: {available_directions}. (Enter to abort)\n")).lower()
+                            if direction_for_connection == "":
+                                print("Cancelling operation.")
+                                return
+                            if direction_for_connection not in available_directions:
+                                print(f"Invalid direction. Please choose one from: {available_directions}")
+                                continue
+                            if room_id_to_connect in self.room_lookup:
+                                starting_room.connect(self.room_lookup[room_id_to_connect], direction_for_connection)
+                                print(f"Successfully connected {starting_room.room_id} to {self.room_lookup[room_id_to_connect].room_id}")
+                                self.room_lookup[room_id_to_connect].connect(starting_room, opposite_directions[direction_for_connection])
+                                print(f"Successfully connected {self.room_lookup[room_id_to_connect].room_id} to {starting_room.room_id}")
+                                break
+                        elif connection_type == "s":
+                            if room_id_to_connect in self.room_lookup:
+                                starting_room.connect(self.room_lookup[room_id_to_connect], "special", room_id_to_connect)
+                                print(f"Successfully made a special connection from {starting_room.room_id} to {self.room_lookup[room_id_to_connect].room_id}")
+                                self.room_lookup[room_id_to_connect].connect(starting_room, "special", starting_room.room_id)
+                                print(f"Successfully made a special connection from {self.room_lookup[room_id_to_connect].room_id} to {starting_room.room_id}")
+                                break
+                        else:
+                            print("Invalid connection type. Please enter 's' or 'n'.")
+                    except ValueError:
+                        print("Invalid input. Please enter a valid room_id or press Enter to abort.")
+                break
+            
+
+            # TODO: what if a room is removed, would need to update rooms' connections that were connected to it I think
+
+
+            elif user_input == "":
                 # Proceed with manual room number input
                 user_choice = "manual"
                 while True:
@@ -205,34 +259,27 @@ class RoomManager:
             print(f"Connected {starting_room.room_name} to {new_room.room_name} ({new_room.room_id}) via {direction}")
 
 
-    def get_room_info(self, room_id):
+    def get_room_info(self):
         """Retrieve detailed information about a room."""
-        room = self.room_lookup.get(room_id)
-        if not room:
-            return f"[ERROR] Room with ID '{room_id}' not found."
+        room = self.player.current_room
+        room_object = self.room_lookup.get(room)
 
         room_info = [
-            f"Room Name: {room.room_name}",
-            f"Room ID: {room.room_id}",
-            "Exits:"
+            f"Room Name: {room_object.room_name}",
+            f"Room ID: {room_object.room_id}",
         ]
-        if room.room_exits:
-            for direction, target_id in room.room_exits.items():
-                target_room = self.room_lookup.get(target_id)
-                room_info.append(f"  {direction} -> {target_room.room_name if target_room else target_id}")
-        else:
-            room_info.append("  No exits")
 
-        room_info.append("Status: In combat" if room.in_combat else "Status: Peaceful")
-
-        return "\n".join(room_info)
+        print("\n".join(room_info))
+        exits_str = ", ".join(room_object.room_exits.keys())
+        print(f"Exits: {exits_str}")
 
 
     def on_turn_advanced(self, current_turn):
         for room in self.game_rooms:
             room.on_turn_advanced(current_turn)
 
-    def generate_map(self, size, search_depth=3):
+    def generate_map(self, size=7, search_depth=8):
+        DEBUG = False
         MAX_GRID_SIZE = 100  # Set a reasonable maximum size
         if size > MAX_GRID_SIZE:
             raise ValueError(f"Grid size too large! Maximum allowed size is {MAX_GRID_SIZE}.")
@@ -263,57 +310,77 @@ class RoomManager:
     }
 
         middle_cell = f"row{size//2 + 1}col{size//2 + 1}"  # Calculate the middle cell
-        print(f"[DEBUG] Calculated middle_cell: {middle_cell}")
+        if DEBUG:
+            print(f"[DEBUG] Calculated middle_cell: {middle_cell}")
 
         # Get the player's current room (middle_cell) exits
         current_room = self.room_lookup[self.player.current_room]
-        print(f"[DEBUG] Current room: {self.player.current_room}, Exits: {current_room.room_exits}")
+        if DEBUG:
+            print(f"[DEBUG] Current room: {self.player.current_room}, Exits: {current_room.room_exits}")
 
         # Step 1: Initialize new_rooms with the middle_cell and its exits
         new_rooms = {middle_cell: current_room.room_exits or {}}
         found_room_ids = [self.player.current_room]  # Track visited rooms by ID
+        room_process_count = {}  # Track how many times each room has been processed
         current_depth = 1
 
-        print(f"[DEBUG] Starting search with depth: {search_depth}")
+        if DEBUG:
+            print(f"[DEBUG] Starting search with depth: {search_depth}")
 
         # Step 2: Iterate through rooms up to the search depth
         while current_depth <= search_depth:
-            print(f"[DEBUG] Current search depth: {current_depth}, Rooms to process: {list(new_rooms.keys())}")
+            if DEBUG:
+                print(f"[DEBUG] Current search depth: {current_depth}, Rooms to process: {list(new_rooms.keys())}")
 
             # Process each room in new_rooms
             for cell_key in list(new_rooms.keys()):
                 # Extract room row/col positions
                 row, col = map(int, [cell_key[3:cell_key.index("col")], cell_key[cell_key.index("col") + 3:]])
                 room_row, room_col = (row - 1) * 2, (col - 1) * 2  # Adjust for grid with paths
-                print(f"[DEBUG] Processing cell_key: {cell_key} (Room coordinates: {room_row}, {room_col})")
+                if DEBUG:
+                    print(f"[DEBUG] Processing cell_key: {cell_key} (Room coordinates: {room_row}, {room_col})")
 
                 # Process each direction and the connected room
                 for direction, room_id in new_rooms[cell_key].items():
                     if direction == "up" or direction == "down":
                         continue
-                    print(f"[DEBUG] Checking direction: {direction}, Target room_id: {room_id}")
+                    if DEBUG:
+                        print(f"[DEBUG] Checking direction: {direction}, Target room_id: {room_id}")
 
-                    if room_id in found_room_ids:
-                        print(f"[DEBUG] Room {room_id} already processed, skipping.")
+                    # Increment processing count for the room
+                    if room_id not in room_process_count:
+                        room_process_count[room_id] = 0
+                    room_process_count[room_id] += 1
+
+                    # Skip the room if it has already been processed the maximum number of times
+                    if room_process_count[room_id] > 2:  # Adjust the threshold as needed
+                        if DEBUG:
+                            print(f"[DEBUG] Room {room_id} processed {room_process_count[room_id]} times, skipping.")
                         continue
 
-                    found_room_ids.append(room_id)
-                    print(f"[DEBUG] Added room_id to found_room_ids: {found_room_ids}")
+                    # Track the room in found_room_ids
+                    if room_id not in found_room_ids:
+                        found_room_ids.append(room_id)
+                        if DEBUG:
+                            print(f"[DEBUG] Added room_id to found_room_ids: {found_room_ids}")
 
                     row_offset, col_offset = map_direction_offsets[direction]
                     path_row, path_col = room_row + row_offset, room_col + col_offset
                     next_room_row, next_room_col = room_row + row_offset * 2, room_col + col_offset * 2
-                    print(f"[DEBUG] Path position: ({path_row}, {path_col}), Next room position: ({next_room_row}, {next_room_col})")
+                    if DEBUG:
+                        print(f"[DEBUG] Path position: ({path_row}, {path_col}), Next room position: ({next_room_row}, {next_room_col})")
 
                     # Update the path in the grid
                     if 0 <= path_row < len(grid) and 0 <= path_col < len(grid):
                         grid[path_row][path_col] = map_direction_representations[direction]
-                        print(f"[DEBUG] Updated path: {grid[path_row][path_col]} at ({path_row}, {path_col})")
+                        if DEBUG:
+                            print(f"[DEBUG] Updated path: {grid[path_row][path_col]} at ({path_row}, {path_col})")
 
                     # Update the new room in the grid
                     if 0 <= next_room_row < len(grid) and 0 <= next_room_col < len(grid):
                         grid[next_room_row][next_room_col] = "o"
-                        print(f"[DEBUG] Updated room: 'o' at ({next_room_row}, {next_room_col})")
+                        if DEBUG:
+                            print(f"[DEBUG] Updated room: 'o' at ({next_room_row}, {next_room_col})")
 
                     # Perform a lookup for the connected room's exits
                     if room_id in self.room_lookup:
@@ -321,21 +388,24 @@ class RoomManager:
                         new_cell_key = f"row{next_room_row//2 + 1}col{next_room_col//2 + 1}"
                         if new_cell_key not in new_rooms:
                             new_rooms[new_cell_key] = room_exits
-                            print(f"[DEBUG] Added new cell_key: {new_cell_key} with exits: {room_exits}")
+                            if DEBUG:
+                                print(f"[DEBUG] Added new cell_key: {new_cell_key} with exits: {room_exits}")
 
                 # Remove the processed room from new_rooms
                 new_rooms.pop(cell_key)  # Safely remove the processed room
-                print(f"[DEBUG] Removed processed cell_key: {cell_key}")
+                if DEBUG:
+                    print(f"[DEBUG] Removed processed cell_key: {cell_key}")
 
             current_depth += 1
-            print(f"[DEBUG] Moving to next depth level.")
+            if DEBUG:
+                print(f"[DEBUG] Moving to next depth level.")
 
         grid[middle][middle] = "O"
         # Step 3: Print the final grid
-        print(f"[DEBUG] Final grid:")
+        if DEBUG:
+            print(f"[DEBUG] Final grid:")
         for row in grid:
             print("".join(row))
-
 
 
 
@@ -705,3 +775,6 @@ class SaveLoadManager:
             except Exception as e:
                 print(f"[ERROR] An unexpected error occurred during loading: {e}")
                 raise  # Re-raise the exception to be handled elsewhere
+
+
+# class MonsterActionManager()

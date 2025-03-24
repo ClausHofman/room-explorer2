@@ -4,18 +4,16 @@ from game.helper_functions import initialize_game
 from game.input_thread import input_thread
 import threading, time
 
-start_game = None
 
 def main():
     from game.input_thread import stop_event
     print(f"[DEBUG] stop_event in main(): {id(stop_event)}")
-    global start_game
 
     start_game = initialize_game()
 
-    print("Test game initialization:", start_game)
-    print("movement_manager type:", type(start_game["movement_manager"]))
-    print("movement_manager object:", start_game["movement_manager"])
+    # print("Test game initialization:", start_game)
+    # print("movement_manager type:", type(start_game["movement_manager"]))
+    # print("movement_manager object:", start_game["movement_manager"])
 
 
     # Check that argument order is correct!
@@ -33,9 +31,11 @@ def main():
     player = start_game["player"]
     movement_manager = turn_manager.movement_manager
     room_manager = turn_manager.room_manager
-    movement_manager.move_player(player, "north")
-    player_action_manager.exits()
 
+    # TODO: player location is always the same when loading the game, it saves the player object in the location where save was made, but it seems to be a duplicate
+    # TODO: need a manual way to add a connection to a room for connecting two rooms on the map that have a 1 room gap between them
+
+    room_manager.generate_map(size=9, search_depth=8)
 
     print("\033[38;5;76m Type 'list_commands' for available commands. \033[38;5;76m")
     if not user_input_thread.is_alive():

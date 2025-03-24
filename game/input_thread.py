@@ -88,7 +88,7 @@ def input_thread(player, movement_manager, turn_manager):
         },
         "map": {
             "description": "Display a map with nearby paths",
-            "handler": lambda: turn_manager.room_manager.generate_map(size=7)
+            "handler": lambda: turn_manager.room_manager.generate_map(size=9, search_depth=8)
         },
         "move": {
             "description": "Move in a specified direction (e.g., 'move north' or use shortcuts 'n', 's', 'e', 'w', 'ne', 'se', 'nw', 'sw', 'd', 'u')",
@@ -110,6 +110,10 @@ def input_thread(player, movement_manager, turn_manager):
         "create_rooms": {
             "description": "Create and connect rooms to available directions",
             "handler": lambda: turn_manager.room_manager.create_and_connect_rooms(turn_manager.room_manager.room_lookup[player.current_room]),
+        },
+        "room_info": {
+            "description": "Display information about the current room",
+            "handler": lambda: turn_manager.room_manager.get_room_info()
         },
         "quit": {
             "description": "Quit the game",

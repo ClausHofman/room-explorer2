@@ -224,6 +224,7 @@ class Monster(Combatant):
             selected_traits=selected_traits
         )
         self._apply_selected_traits()
+        # self.skills = {}
 
     def _apply_selected_traits(self):
         # Append selected traits to the monster's default traits
