@@ -420,3 +420,254 @@ def remove_creature_by_id(room_manager, player):
             current_room.combatants.remove(creature_to_remove)
             print(f"{creature_to_remove.name} snaps out from existence.")
             break
+
+
+
+def generate_internal_connections(width, length):
+    """
+    Generates the internal_connections list for a grid of the given width and length.
+
+    Args:
+        width: The width of the grid (number of columns).
+        length: The length of the grid (number of rows).
+
+    Returns:
+        A list of tuples representing the internal connections.
+    """
+
+    internal_connections = []
+    room_count = 0
+
+    # Helper function to get the room number from row and column
+    def get_room_number(row, col):
+        return row * width + col + 1
+
+    # Iterate through each room in the grid
+    for row in range(length):
+        for col in range(width):
+            room_num1 = get_room_number(row, col)
+
+            # Check for adjacent rooms in all directions
+            # North
+            if row > 0:
+                room_num2 = get_room_number(row - 1, col)
+                internal_connections.append((room_num1, room_num2, "north"))
+                internal_connections.append((room_num2, room_num1, "south"))
+
+            # South
+            if row < length - 1:
+                room_num2 = get_room_number(row + 1, col)
+                internal_connections.append((room_num1, room_num2, "south"))
+                internal_connections.append((room_num2, room_num1, "north"))
+
+            # East
+            if col < width - 1:
+                room_num2 = get_room_number(row, col + 1)
+                internal_connections.append((room_num1, room_num2, "east"))
+                internal_connections.append((room_num2, room_num1, "west"))
+
+            # West
+            if col > 0:
+                room_num2 = get_room_number(row, col - 1)
+                internal_connections.append((room_num1, room_num2, "west"))
+                internal_connections.append((room_num2, room_num1, "east"))
+
+            # Northeast
+            if row > 0 and col < width - 1:
+                room_num2 = get_room_number(row - 1, col + 1)
+                internal_connections.append((room_num1, room_num2, "northeast"))
+                internal_connections.append((room_num2, room_num1, "southwest"))
+
+            # Northwest
+            if row > 0 and col > 0:
+                room_num2 = get_room_number(row - 1, col - 1)
+                internal_connections.append((room_num1, room_num2, "northwest"))
+                internal_connections.append((room_num2, room_num1, "southeast"))
+
+            # Southeast
+            if row < length - 1 and col < width - 1:
+                room_num2 = get_room_number(row + 1, col + 1)
+                internal_connections.append((room_num1, room_num2, "southeast"))
+                internal_connections.append((room_num2, room_num1, "northwest"))
+
+            # Southwest
+            if row < length - 1 and col > 0:
+                room_num2 = get_room_number(row + 1, col - 1)
+                internal_connections.append((room_num1, room_num2, "southwest"))
+                internal_connections.append((room_num2, room_num1, "northeast"))
+    print(f"[DEBUG generate_internal_connections] Generated internal connections: {internal_connections}")
+    return internal_connections
+
+def create_room_cluster(room_manager, start_room, direction, width, length, internal_connections):
+    """
+    Creates a grid of rooms starting from a specified direction relative to a central room.
+    Connects the rooms internally and with adjacent rooms if they exist.
+    
+    Parameters:
+        room_manager: Manages and tracks all rooms in the game.
+        start_room: The central room to start the cluster from.
+        direction: Direction to build the cluster (north, south, east, or west).
+        width: The width of the grid (number of columns).
+        length: The length of the grid (number of rows).
+        internal_connections: The list of tuples defining the internal connections.
+    
+    Returns:
+        A dictionary of rooms in the grid, keyed by their grid positions (1 to width*length).
+    """
+    from game.room import Room
+
+    # Ensure the direction is valid
+    valid_directions = ["north", "south", "east", "west"]
+    if direction not in valid_directions:
+        raise ValueError(f"Invalid direction: {direction}. Must be one of {valid_directions}")
+
+    # Initialize placeholders for adjacent rooms
+    north_room, south_room, east_room, west_room = None, None, None, None
+
+    # Identify and assign adjacent rooms if they exist
+    for room in room_manager.room_lookup.values():
+        if start_room.room_id in room.room_exits.values():
+            for exit_dir, connected_room_id in room.room_exits.items():
+                if connected_room_id == start_room.room_id:
+                    if exit_dir == "north":
+                        south_room = room
+                    elif exit_dir == "south":
+                        north_room = room
+                    elif exit_dir == "east":
+                        west_room = room
+                    elif exit_dir == "west":
+                        east_room = room
+
+    # Create a dictionary to store the new rooms
+    rooms = {}
+
+    # Create all rooms
+    for room_number in range(1, width * length + 1):
+        new_room = Room()
+        room_manager.add_room(new_room)
+        rooms[room_number] = new_room
+        print(f"[DEBUG CLUSTER] Created room: {room_number}")
+
+    # Connect the first three rooms to the start room and adjacent rooms
+    if direction == "north":
+        start_room.connect(rooms[length*width-width+2], "north") # 3x3: 8, 4x4: 14
+        start_room.connect(rooms[length*width-width+3], "northeast") # 3x3: 9, 4x4: 15
+        start_room.connect(rooms[length*width-width+1], "northwest") # 3x3: 7, 4x4: 13
+        print(f"[DEBUG CLUSTER] Connected start_room to {length*width-width+2} (north), {length*width-width+3} (northeast), {length*width-width+1} (northwest)")
+        if east_room:
+            east_room.connect(rooms[length*width-width+3], "north") # 3x3: 9, 4x4: 15
+            east_room.connect(rooms[length*width-width+2], "northwest") # 3x3: 8, 4x4: 14
+            print(f"[DEBUG CLUSTER] Connected east_room to {length*width-width+3} (north), {length*width-width+2} (northwest)")
+        if west_room:
+            west_room.connect(rooms[length*width-width+1], "north") # 3x3: 7, 4x4: 13
+            west_room.connect(rooms[length*width-width+2], "northeast") # 3x3: 8, 4x4: 14
+            print(f"[DEBUG CLUSTER] Connected west_room to {length*width-width+1} (north), {length*width-width+2} (northeast)")
+    elif direction == "south":
+        start_room.connect(rooms[2], "south") # 3x3: 2, 4x4: 2
+        start_room.connect(rooms[3], "southeast") # 3x3: 3, 4x4: 3
+        start_room.connect(rooms[1], "southwest") # 3x3: 1, 4x4: 1
+        print(f"[DEBUG CLUSTER] Connected start_room to 2 (south), 3 (southeast), 1 (southwest)")
+        if east_room:
+            east_room.connect(rooms[2], "southwest") # 3x3: 2, 4x4: 2
+            east_room.connect(rooms[3], "south") # 3x3: 3, 4x4: 3
+            print(f"[DEBUG CLUSTER] Connected east_room to 2 (southwest), 3 (south)")
+        if west_room:
+            west_room.connect(rooms[2], "southeast") # 3x3: 2, 4x4: 2
+            west_room.connect(rooms[1], "south") # 3x3: 1, 4x4: 1
+            print(f"[DEBUG CLUSTER] Connected west_room to 2 (southeast), 1 (south)")
+    elif direction == "east":
+        start_room.connect(rooms[1], "northeast") # 3x3: 1, 4x4: 1
+        start_room.connect(rooms[1+width], "east") # 3x3: 4, 4x4: 5
+        start_room.connect(rooms[1+width*(length-1)], "southeast") # 3x3: 7, 4x4: 9
+        print(f"[DEBUG CLUSTER] Connected start_room to 1 (northeast), {1+width} (east), {1+width*(length-1)} (southeast)")
+        if north_room:
+            north_room.connect(rooms[1], "east") # 3x3: 1, 4x4: 1
+            north_room.connect(rooms[1+width], "southeast") # 3x3: 4, 4x4: 5
+            print(f"[DEBUG CLUSTER] Connected north_room to 1 (east), {1+width} (southeast)")
+        if south_room:
+            south_room.connect(rooms[1+width*(length-1)], "east") # 3x3: 7, 4x4: 9
+            south_room.connect(rooms[1+width], "northeast") # 3x3: 4, 4x4: 5
+            print(f"[DEBUG CLUSTER] Connected south_room to {1+width*(length-1)} (east), {1+width} (northeast)")
+    elif direction == "west":
+        start_room.connect(rooms[width], "northwest") # 3x3: 3, 4x4: 4
+        start_room.connect(rooms[width*2], "west") # 3x3: 6, 4x4: 8
+        start_room.connect(rooms[width*length], "southwest") # 3x3: 9, 4x4: 12
+        print(f"[DEBUG CLUSTER] Connected start_room to {width} (northwest), {width*2} (west), {width*length} (southwest)")
+        if north_room:
+            north_room.connect(rooms[width], "west") # 3x3: 3, 4x4: 4
+            north_room.connect(rooms[width*2], "southwest") # 3x3: 6, 4x4: 8
+            print(f"[DEBUG CLUSTER] Connected north_room to {width} (west), {width*2} (southwest)")
+        if south_room:
+            south_room.connect(rooms[width*length], "west") # 3x3: 9, 4x4: 12
+            south_room.connect(rooms[width*2], "northwest") # 3x3: 6, 4x4: 8
+            print(f"[DEBUG CLUSTER] Connected south_room to {width*length} (west), {width*2} (northwest)")
+
+    # Connect the rooms internally
+    for room_num1, room_num2, conn_direction in internal_connections: # tuple numbers are the rooms in rooms dictionary
+        if room_num1 in rooms and room_num2 in rooms: # rooms dictionary, keys are numbers
+            rooms[room_num1].connect(rooms[room_num2], conn_direction)
+            print(f"[DEBUG CLUSTER] Connecting room {room_num1} to {room_num2} in direction {conn_direction}")
+            print(f"[DEBUG CLUSTER] Room {room_num1} connections: {rooms[room_num1].room_exits}")
+            print(f"[DEBUG CLUSTER] Room {room_num2} connections: {rooms[room_num2].room_exits}")
+
+    return rooms
+
+
+def create_cluster_command(room_manager, player):
+    """Handles the 'create_cluster' command."""
+    valid_directions = ["north", "south", "east", "west"]  # Only cardinal directions
+    while True:
+        direction = input(f"Enter the direction to expand the cluster ({', '.join(valid_directions)} or press Enter to abort):\n").strip().lower()
+        if direction == "":
+            abort_message = "Aborting cluster creation."
+            print(abort_message)
+            return abort_message  # Return the abort message for logging purposes
+        if direction not in valid_directions:
+            print(f"Invalid direction '{direction}'. Please choose from: {', '.join(valid_directions)}.")
+            continue
+        while True:
+            try:
+                width = int(input("Enter the width of the cluster:\n"))
+                length = int(input("Enter the length of the cluster:\n"))
+                if width < 1 or length < 1:
+                    print("Width and length must be greater than 0.")
+                    continue
+                break
+            except ValueError:
+                print("Invalid input. Please enter integers for width and length.")
+
+        start_room = room_manager.room_lookup[player.current_room]
+        internal_connections = generate_internal_connections(width, length)
+        create_room_cluster(room_manager, start_room, direction, width, length, internal_connections)
+        success_message = f"{width}x{length} room cluster created to the {direction} of room '{start_room.room_id}'."
+        print(success_message)
+        return success_message  # Return the success message for logging purposes
+
+
+def create_cluster_command_wrapper():
+    """Wrapper for create_cluster_command to handle user input."""
+    valid_directions = ["north", "south", "east", "west"]
+    while True:
+        direction = input(f"Enter the direction to expand the cluster ({', '.join(valid_directions)} or press Enter to abort):\n").strip().lower()
+        if direction == "":
+            print("Aborting cluster creation.")
+            return
+        if direction not in valid_directions:
+            print(f"Invalid direction '{direction}'. Please choose from: {', '.join(valid_directions)}.")
+            continue
+        while True:
+            try:
+                width = int(input("Enter the width of the cluster:\n"))
+                length = int(input("Enter the length of the cluster:\n"))
+                if width < 1 or length < 1:
+                    print("Width and length must be greater than 0.")
+                    continue
+                break
+            except ValueError:
+                print("Invalid input. Please enter integers for width and length.")
+
+        start_room = turn_manager.room_manager.room_lookup[player.current_room]
+        internal_connections = generate_internal_connections(width, length)
+        create_room_cluster(turn_manager.room_manager, start_room, direction, width, length, internal_connections)
+        print(f"{width}x{length} room cluster created to the {direction} of room '{start_room.room_id}'.")
+        return

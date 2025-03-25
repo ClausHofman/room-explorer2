@@ -313,7 +313,7 @@ class RoomManager:
 
         grid = [["#" for _ in range(size * 2 - 1)] for _ in range(size * 2 - 1)]
         middle = size // 2 * 2
-        grid[middle][middle] = "O"
+        grid[middle][middle] = "X"
 
         map_direction_offsets = {
             "north": (-1, 0),
@@ -391,7 +391,7 @@ class RoomManager:
                     room_process_count[room_id] += 1
 
                     # Increase room_process_count if map is behaving funnily, it might not show rooms in some scenarios and more processing is needed
-                    if room_process_count[room_id] > 2:
+                    if room_process_count[room_id] > 10:
                         if DEBUG:
                             print(f"[DEBUG] Room {room_id} processed {room_process_count[room_id]} times, skipping.")
                         continue
@@ -445,7 +445,7 @@ class RoomManager:
             if DEBUG:
                 print(f"[DEBUG] Moving to next depth level.")
 
-        grid[middle][middle] = "O"
+        grid[middle][middle] = "X"
         # Step 3: Print the final grid
         if DEBUG:
             print(f"[DEBUG] Final grid:")
@@ -489,12 +489,12 @@ class MovementManager(PlayerActionManager, RoomManager):
 
         # Show map
         start_time = perf_counter()
-        map_size = 30
-        map_search_depth = 100
+        map_size = 15
+        map_search_depth = 10
         self.room_manager.generate_map(size=map_size, search_depth=map_search_depth)
         end_time = perf_counter()
         elapsed_time = end_time - start_time
-        print(f"[PERF] Map generation with size {map_size}, search depth {map_search_depth} took {elapsed_time:.10f} seconds.")
+        print(f"[PERF] Map generation with size {map_size}, search depth {map_search_depth} took {elapsed_time:.6f} seconds.")
 
         
         # Inherited from PlayerActionManager

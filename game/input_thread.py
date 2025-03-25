@@ -6,7 +6,8 @@ from game.helper_functions import CommandCompleter
 from game.managers import RoomManager
 import threading, time
 from game.shared_resources import stop_event
-from game.helper_functions import remove_creature_by_id
+from game.helper_functions import remove_creature_by_id, create_cluster_command_wrapper
+
 
 DEBUG = False
 turn_manager = None
@@ -75,6 +76,11 @@ def input_thread(player, movement_manager, turn_manager):
     from game.managers import SaveLoadManager
 
     commands = {
+
+        "create_cluster": {
+            "description": "Create a room cluster in a specified direction.",
+            "handler": create_cluster_command_wrapper,  # Use the wrapper here
+        },
         "create_test_rooms": {
             "description": "Create a large number of rooms for testing.",
             "handler": lambda: turn_manager.room_manager.create_and_connect_rooms(
@@ -104,7 +110,7 @@ def input_thread(player, movement_manager, turn_manager):
         },
         "map": {
             "description": "Display a map with nearby paths",
-            "handler": lambda: turn_manager.room_manager.generate_map(size=30, search_depth=100)
+            "handler": lambda: turn_manager.room_manager.generate_map(size=10, search_depth=20)
         },
         "move": {
             "description": "Move in a specified direction (e.g., 'move north' or use shortcuts 'n', 's', 'e', 'w', 'ne', 'se', 'nw', 'sw', 'd', 'u')",

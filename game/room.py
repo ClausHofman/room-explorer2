@@ -100,14 +100,20 @@ class Room:
             direction (str): The direction of the exit (e.g., 'north', 'special_portal').
             **room_ids: Additional room ID or metadata for the connection.
         """
-        if not isinstance(target_room, Room):
-            raise ValueError("target_room must be a Room object.")
+        # Debug statements for troubleshooting
+        print(f"[DEBUG] Attempting to connect {self.room_id} to {target_room.room_id} via {direction}")
+        print(f"[DEBUG] Available directions: {self.available_directions()}")
         
-        available_directions = self.available_directions()
+        opposite_direction = {"north": "south", "south": "north", "east": "west", "west": "east", 
+                            "northeast": "southwest", "southeast": "northwest", 
+                            "southwest": "northeast", "northwest": "southeast"}.get(direction)
+        print(f"[DEBUG] Opposite direction: {direction} -> {opposite_direction}")
 
         # Handle normal exits
-        if direction in available_directions['normal_exits'] and not room_ids and direction != "Unknown":
+        if direction in self.available_directions()['normal_exits'] and not room_ids and direction != "Unknown":
             self.room_exits[direction] = target_room.room_id
+            if opposite_direction:
+                target_room.room_exits[opposite_direction] = self.room_id
             print(f"[DEBUG CONNECT] Connected {self.room_id} to {target_room.room_id} via {direction}")
             return
 
@@ -121,9 +127,10 @@ class Room:
 
         raise ValueError("Invalid connection parameters. Check direction or room_ids!")
 
+
     @staticmethod
     def available_directions():
-        exits = {'normal_exits': ['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest', 'up', 'down'],
+        exits = {'normal_exits': ['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest'],
                 'special_exits': []}
         return exits
     

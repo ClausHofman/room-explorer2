@@ -32,10 +32,7 @@ def main():
     movement_manager = turn_manager.movement_manager
     room_manager = turn_manager.room_manager
 
-    # TODO: player location is always the same when loading the game, it saves the player object in the location where save was made, but it seems to be a duplicate
-    # TODO: need a manual way to add a connection to a room for connecting two rooms on the map that have a 1 room gap between them
-
-    room_manager.generate_map(size=9, search_depth=8)
+    room_manager.generate_map(size=15, search_depth=20)
 
     print("\033[38;5;76m Type 'list_commands' for available commands. \033[38;5;76m")
     if not user_input_thread.is_alive():
