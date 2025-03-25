@@ -75,6 +75,14 @@ def input_thread(player, movement_manager, turn_manager):
     from game.managers import SaveLoadManager
 
     commands = {
+        "create_test_rooms": {
+            "description": "Create a large number of rooms for testing.",
+            "handler": lambda: turn_manager.room_manager.create_and_connect_rooms(
+                turn_manager.room_manager.room_lookup[player.current_room],
+                test_mode=True,
+                num_rooms_to_create=2000
+            ),
+        },
         "remove_creature": {
             "description": "Provide a combatant_id to remove a creature",
             "handler": lambda: remove_creature_by_id(turn_manager.room_manager, player)
@@ -96,7 +104,7 @@ def input_thread(player, movement_manager, turn_manager):
         },
         "map": {
             "description": "Display a map with nearby paths",
-            "handler": lambda: turn_manager.room_manager.generate_map(size=9, search_depth=8)
+            "handler": lambda: turn_manager.room_manager.generate_map(size=30, search_depth=100)
         },
         "move": {
             "description": "Move in a specified direction (e.g., 'move north' or use shortcuts 'n', 's', 'e', 'w', 'ne', 'se', 'nw', 'sw', 'd', 'u')",

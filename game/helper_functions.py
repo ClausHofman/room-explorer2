@@ -399,7 +399,7 @@ def remove_creature_by_id(room_manager, player):
         return
 
     while True:
-        creature_id = input("Type the ID of the creature to remove (or press Enter to abort):\n").strip()
+        creature_id = str(input("Type the ID of the creature to remove (or press Enter to abort):\n")).strip().lower()
         if creature_id == "":
             print("Aborting.")
             return

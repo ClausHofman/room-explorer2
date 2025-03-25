@@ -68,13 +68,16 @@ class RoomManager:
         self.room_lookup[room.room_id] = room
         print(f"[DEBUG ADD ROOM] Room added: {room.room_name} ({room.room_id})")
 
-    def create_and_connect_rooms(self, starting_room):
+    def create_and_connect_rooms(self, starting_room, test_mode=False, num_rooms_to_create=0):
         from game.room import Room
+        import random
         """Handles user input to create and connect multiple rooms dynamically."""
-        valid_directions = ['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest', 'up', 'down']
+        valid_directions = ['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest']
+        # valid_directions = ['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest', 'up', 'down']
         cardinal_directions = ['north', 'east', 'south', 'west']
         diagonal_directions = ['northeast', 'southeast', 'southwest', 'northwest']
-        opposite_directions = {'north': 'south', 'east': 'west', 'south': 'north', 'west': 'east', 'up': 'down', 'down': 'up', 'northeast': 'southwest', 'southeast': 'northwest', 'southwest': 'northeast', 'northwest': 'southeast'}
+        opposite_directions = {'north': 'south', 'east': 'west', 'south': 'north', 'west': 'east', 'northeast': 'southwest', 'southeast': 'northwest', 'southwest': 'northeast', 'northwest': 'southeast'}
+        # opposite_directions = {'north': 'south', 'east': 'west', 'south': 'north', 'west': 'east', 'up': 'down', 'down': 'up', 'northeast': 'southwest', 'southeast': 'northwest', 'southwest': 'northeast', 'northwest': 'southeast'}
 
         def get_available_directions(room):
             """Returns available directions where no rooms exist."""
@@ -90,6 +93,29 @@ class RoomManager:
 
         directions_to_connect = []  # Initialize here
         user_choice = ""
+
+        if test_mode:
+            print(f"[DEBUG] Test mode enabled. Creating {num_rooms_to_create} rooms.")
+            current_room = starting_room
+            for _ in range(num_rooms_to_create):
+                available_directions = get_available_directions(current_room)
+                if not available_directions:
+                    print(f"[DEBUG] No available directions for {current_room.room_name}. Stopping room creation.")
+                    break
+                direction = random.choice(available_directions)  # Choose a random direction
+                opposite_direction = opposite_directions[direction]
+
+                # Create a new room and register it
+                new_room = Room()
+                self.add_room(new_room)
+
+                # Establish bidirectional connection
+                current_room.room_exits[direction] = new_room.room_id
+                new_room.room_exits[opposite_direction] = current_room.room_id
+
+                print(f"[DEBUG] Connected {current_room.room_name} to {new_room.room_name} ({new_room.room_id}) via {direction}")
+                current_room = new_room  # Move to the new room for the next iteration
+            return
 
         while True:
             user_input = input(f"How do you want to proceed with connecting rooms to {starting_room.room_id}?\n"
@@ -138,10 +164,11 @@ class RoomManager:
                                 print(f"Successfully connected {self.room_lookup[room_id_to_connect].room_id} to {starting_room.room_id}")
                                 break
                         elif connection_type == "s":
+                            # TODO: Map breaks if make a special connection
                             if room_id_to_connect in self.room_lookup:
-                                starting_room.connect(self.room_lookup[room_id_to_connect], "special", room_id_to_connect)
+                                starting_room.connect(self.room_lookup[room_id_to_connect], "special", room_id_to_connect=room_id_to_connect)
                                 print(f"Successfully made a special connection from {starting_room.room_id} to {self.room_lookup[room_id_to_connect].room_id}")
-                                self.room_lookup[room_id_to_connect].connect(starting_room, "special", starting_room.room_id)
+                                self.room_lookup[room_id_to_connect].connect(starting_room, "special", starting_room_id=starting_room.room_id)
                                 print(f"Successfully made a special connection from {self.room_lookup[room_id_to_connect].room_id} to {starting_room.room_id}")
                                 break
                         else:
@@ -289,27 +316,27 @@ class RoomManager:
         grid[middle][middle] = "O"
 
         map_direction_offsets = {
-        "north": (-1, 0),
-        "south": (1, 0),
-        "east": (0, 1),
-        "west": (0, -1),
-        "northeast": (-1, 1),
-        "northwest": (-1, -1),
-        "southeast": (1, 1),
-        "southwest": (1, -1)
-    }
+            "north": (-1, 0),
+            "south": (1, 0),
+            "east": (0, 1),
+            "west": (0, -1),
+            "northeast": (-1, 1),
+            "northwest": (-1, -1),
+            "southeast": (1, 1),
+            "southwest": (1, -1)
+        }
         map_direction_representations = {
-        "north": "|",
-        "south": "|",
-        "east": "-",
-        "west": "-",
-        "northeast": "/",
-        "southeast": "\\",
-        "southwest": "/",
-        "northwest": "\\"
-    }
+            "north": "|",
+            "south": "|",
+            "east": "-",
+            "west": "-",
+            "northeast": "/",
+            "southeast": "\\",
+            "southwest": "/",
+            "northwest": "\\"
+        }
 
-        middle_cell = f"row{size//2 + 1}col{size//2 + 1}"  # Calculate the middle cell
+        middle_cell = f"row{size // 2 + 1}col{size // 2 + 1}"  # Calculate the middle cell
         if DEBUG:
             print(f"[DEBUG] Calculated middle_cell: {middle_cell}")
 
@@ -332,6 +359,9 @@ class RoomManager:
             if DEBUG:
                 print(f"[DEBUG] Current search depth: {current_depth}, Rooms to process: {list(new_rooms.keys())}")
 
+            rooms_to_add = {}  # Dictionary to store rooms to add
+            rooms_to_remove = []  # List to store rooms to remove
+
             # Process each room in new_rooms
             for cell_key in list(new_rooms.keys()):
                 # Extract room row/col positions
@@ -341,9 +371,17 @@ class RoomManager:
                     print(f"[DEBUG] Processing cell_key: {cell_key} (Room coordinates: {room_row}, {room_col})")
 
                 # Process each direction and the connected room
-                for direction, room_id in new_rooms[cell_key].items():
+                for direction, connection_data in new_rooms[cell_key].items():
                     if direction == "up" or direction == "down":
                         continue
+
+                    # Ignore special connections
+                    if isinstance(connection_data, dict):
+                        if DEBUG:
+                            print(f"[DEBUG] Ignoring special connection: {direction}")
+                        continue  # Skip to the next direction
+
+                    room_id = connection_data  # Normal connection, room_id is a string
                     if DEBUG:
                         print(f"[DEBUG] Checking direction: {direction}, Target room_id: {room_id}")
 
@@ -352,8 +390,8 @@ class RoomManager:
                         room_process_count[room_id] = 0
                     room_process_count[room_id] += 1
 
-                    # Skip the room if it has already been processed the maximum number of times
-                    if room_process_count[room_id] > 2:  # Adjust the threshold as needed
+                    # Increase room_process_count if map is behaving funnily, it might not show rooms in some scenarios and more processing is needed
+                    if room_process_count[room_id] > 2:
                         if DEBUG:
                             print(f"[DEBUG] Room {room_id} processed {room_process_count[room_id]} times, skipping.")
                         continue
@@ -385,16 +423,23 @@ class RoomManager:
                     # Perform a lookup for the connected room's exits
                     if room_id in self.room_lookup:
                         room_exits = self.room_lookup[room_id].room_exits or {}
-                        new_cell_key = f"row{next_room_row//2 + 1}col{next_room_col//2 + 1}"
+                        new_cell_key = f"row{next_room_row // 2 + 1}col{next_room_col // 2 + 1}"
                         if new_cell_key not in new_rooms:
-                            new_rooms[new_cell_key] = room_exits
+                            rooms_to_add[new_cell_key] = room_exits # Add to the dictionary instead of directly to new_rooms
                             if DEBUG:
                                 print(f"[DEBUG] Added new cell_key: {new_cell_key} with exits: {room_exits}")
 
-                # Remove the processed room from new_rooms
-                new_rooms.pop(cell_key)  # Safely remove the processed room
-                if DEBUG:
-                    print(f"[DEBUG] Removed processed cell_key: {cell_key}")
+                rooms_to_remove.append(cell_key)
+
+            # Remove the processed rooms from new_rooms AFTER the loop
+            for cell_key in rooms_to_remove:
+                if cell_key in new_rooms:
+                    new_rooms.pop(cell_key)
+                    if DEBUG:
+                        print(f"[DEBUG] Removed processed cell_key: {cell_key}")
+
+            # Add the new rooms to new_rooms AFTER the loop
+            new_rooms.update(rooms_to_add)
 
             current_depth += 1
             if DEBUG:
@@ -409,6 +454,8 @@ class RoomManager:
 
 
 
+
+
 class MovementManager(PlayerActionManager, RoomManager):
     def __init__(self, room_manager=None, player=None, companion=None, creature=None):
         self.room_manager = room_manager
@@ -418,6 +465,7 @@ class MovementManager(PlayerActionManager, RoomManager):
         
 
     def move_player(self, player, direction):
+        from time import perf_counter
         """Handles moving the player to another room."""
         current_room = self.room_manager.room_lookup[player.current_room]
 
@@ -440,7 +488,14 @@ class MovementManager(PlayerActionManager, RoomManager):
         player.current_room = target_room.room_id
 
         # Show map
-        # self.room_manager.display_map()
+        start_time = perf_counter()
+        map_size = 30
+        map_search_depth = 100
+        self.room_manager.generate_map(size=map_size, search_depth=map_search_depth)
+        end_time = perf_counter()
+        elapsed_time = end_time - start_time
+        print(f"[PERF] Map generation with size {map_size}, search depth {map_search_depth} took {elapsed_time:.10f} seconds.")
+
         
         # Inherited from PlayerActionManager
         self.exits()
