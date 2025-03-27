@@ -1,5 +1,5 @@
 import json, threading, copy, time
-
+from prompt_toolkit import print_formatted_text, ANSI
 
 class PlayerActionManager():
     def __init__(self, room_manager=None, player=None):
@@ -8,18 +8,18 @@ class PlayerActionManager():
     
     # Called when the player moves with MovementManager
     def exits(self):
-        adjacent_rooms = self.room_manager.room_lookup[self.player.current_room].room_exits
-        for direction, room_id in adjacent_rooms.items():
-            print(f"{direction}: {self.room_manager.room_lookup[room_id].room_short_desc}")
-
+        # Display exits
+        current_room = self.room_manager.room_lookup[self.player.current_room]
+        exits_str = ", ".join(current_room.room_exits.keys())
+        print(f"Exits: {exits_str}")
 
     def look(self):
         """Displays the exits and combatants in the current room."""
         current_room = self.room_manager.room_lookup[self.player.current_room]
 
-        # Display exits
-        exits_str = ", ".join(current_room.room_exits.keys())
-        print(f"Exits: {exits_str}")
+        adjacent_rooms = self.room_manager.room_lookup[self.player.current_room].room_exits
+        for direction, room_id in adjacent_rooms.items():
+            print(f"{direction}: {self.room_manager.room_lookup[room_id].room_short_desc}")
 
         # Display combatants
         if current_room.combatants:
@@ -164,7 +164,6 @@ class RoomManager:
                                 print(f"Successfully connected {self.room_lookup[room_id_to_connect].room_id} to {starting_room.room_id}")
                                 break
                         elif connection_type == "s":
-                            # TODO: Map breaks if make a special connection
                             if room_id_to_connect in self.room_lookup:
                                 starting_room.connect(self.room_lookup[room_id_to_connect], "special", room_id_to_connect=room_id_to_connect)
                                 print(f"Successfully made a special connection from {starting_room.room_id} to {self.room_lookup[room_id_to_connect].room_id}")
@@ -305,15 +304,33 @@ class RoomManager:
         for room in self.game_rooms:
             room.on_turn_advanced(current_turn)
 
+
+
     def generate_map(self, size=7, search_depth=8):
         DEBUG = False
         MAX_GRID_SIZE = 100  # Set a reasonable maximum size
         if size > MAX_GRID_SIZE:
             raise ValueError(f"Grid size too large! Maximum allowed size is {MAX_GRID_SIZE}.")
 
+        # Initialize grid
         grid = [["#" for _ in range(size * 2 - 1)] for _ in range(size * 2 - 1)]
         middle = size // 2 * 2
-        grid[middle][middle] = "X"
+
+        # Hardcode colors for symbols
+        symbol_colors = {
+            "#": "\033[92m",  # Green for "#"
+            "o": "\033[93m",  # Yellow for "o"
+            "-": "\033[38;2;180;180;180m",
+            "X": "\033[38;5;165m",
+            "/": "\033[38;2;180;180;180m",
+            "\\": "\033[38;2;180;180;180m",
+            "|": "\033[38;2;180;180;180m"
+        }
+
+        map_symbols = {
+            "map_player": "X",
+            "map_unoccupied_room": "o"
+        }
 
         map_direction_offsets = {
             "north": (-1, 0),
@@ -345,9 +362,14 @@ class RoomManager:
         if DEBUG:
             print(f"[DEBUG] Current room: {self.player.current_room}, Exits: {current_room.room_exits}")
 
+        # Store the player room ID
+        player_room = self.room_lookup[self.player.current_room].room_id
+        
+
         # Step 1: Initialize new_rooms with the middle_cell and its exits
         new_rooms = {middle_cell: current_room.room_exits or {}}
         found_room_ids = [self.player.current_room]  # Track visited rooms by ID
+        grid[middle][middle] = map_symbols["map_player"]
         room_process_count = {}  # Track how many times each room has been processed
         current_depth = 1
 
@@ -364,6 +386,9 @@ class RoomManager:
 
             # Process each room in new_rooms
             for cell_key in list(new_rooms.keys()):
+                if DEBUG:
+                    print(f"[DEBUG] Processing cell_key: {cell_key}")
+                    
                 # Extract room row/col positions
                 row, col = map(int, [cell_key[3:cell_key.index("col")], cell_key[cell_key.index("col") + 3:]])
                 room_row, room_col = (row - 1) * 2, (col - 1) * 2  # Adjust for grid with paths
@@ -371,17 +396,18 @@ class RoomManager:
                     print(f"[DEBUG] Processing cell_key: {cell_key} (Room coordinates: {room_row}, {room_col})")
 
                 # Process each direction and the connected room
-                for direction, connection_data in new_rooms[cell_key].items():
+                for direction, new_rooms_room_id in new_rooms[cell_key].items():
+                    print(f"[DEBUG] Checking direction: {direction}, Connection data: {new_rooms_room_id}")
                     if direction == "up" or direction == "down":
                         continue
 
                     # Ignore special connections
-                    if isinstance(connection_data, dict):
+                    if isinstance(new_rooms_room_id, dict):
                         if DEBUG:
                             print(f"[DEBUG] Ignoring special connection: {direction}")
                         continue  # Skip to the next direction
 
-                    room_id = connection_data  # Normal connection, room_id is a string
+                    room_id = new_rooms_room_id  # Normal connection, room_id is a string
                     if DEBUG:
                         print(f"[DEBUG] Checking direction: {direction}, Target room_id: {room_id}")
 
@@ -402,6 +428,7 @@ class RoomManager:
                         if DEBUG:
                             print(f"[DEBUG] Added room_id to found_room_ids: {found_room_ids}")
 
+                    # Determine offsets depending on direction
                     row_offset, col_offset = map_direction_offsets[direction]
                     path_row, path_col = room_row + row_offset, room_col + col_offset
                     next_room_row, next_room_col = room_row + row_offset * 2, room_col + col_offset * 2
@@ -414,9 +441,14 @@ class RoomManager:
                         if DEBUG:
                             print(f"[DEBUG] Updated path: {grid[path_row][path_col]} at ({path_row}, {path_col})")
 
-                    # Update the new room in the grid
+                    print(f"[DEBUG] room_id = {room_id}, player_room = {player_room}")
+                    if room_id == player_room:
+                        print(f"[DEBUG] Skipping update for player position at ({next_room_row}, {next_room_col})")
+                        continue  # Skip placing anything over the player's position
+
+                    # Otherwise, update the room as usual
                     if 0 <= next_room_row < len(grid) and 0 <= next_room_col < len(grid):
-                        grid[next_room_row][next_room_col] = "o"
+                        grid[next_room_row][next_room_col] = map_symbols["map_unoccupied_room"]
                         if DEBUG:
                             print(f"[DEBUG] Updated room: 'o' at ({next_room_row}, {next_room_col})")
 
@@ -425,7 +457,7 @@ class RoomManager:
                         room_exits = self.room_lookup[room_id].room_exits or {}
                         new_cell_key = f"row{next_room_row // 2 + 1}col{next_room_col // 2 + 1}"
                         if new_cell_key not in new_rooms:
-                            rooms_to_add[new_cell_key] = room_exits # Add to the dictionary instead of directly to new_rooms
+                            rooms_to_add[new_cell_key] = room_exits  # Add to the dictionary instead of directly to new_rooms
                             if DEBUG:
                                 print(f"[DEBUG] Added new cell_key: {new_cell_key} with exits: {room_exits}")
 
@@ -445,13 +477,19 @@ class RoomManager:
             if DEBUG:
                 print(f"[DEBUG] Moving to next depth level.")
 
-        grid[middle][middle] = "X"
-        # Step 3: Print the final grid
+
+        # Print the final grid
         if DEBUG:
             print(f"[DEBUG] Final grid:")
         for row in grid:
-            print("".join(row))
-
+            row_string = ""
+            for cell in row:
+                if isinstance(cell, str):  # Regular symbol
+                    color_code = symbol_colors.get(cell, "\033[97m")  # Default to white if no color
+                    row_string += color_code + cell + "\033[0m"  # Reset color after each symbol
+                else:
+                    row_string += str(cell)  # In case it is already an ANSI object like "X"
+            print_formatted_text(ANSI(row_string))
 
 
 
@@ -487,14 +525,17 @@ class MovementManager(PlayerActionManager, RoomManager):
         target_room.add_combatant(player)
         player.current_room = target_room.room_id
 
+        # Display map when moving
+        self.room_manager.generate_map(size=7, search_depth=40)
+
         # Show map
-        start_time = perf_counter()
-        map_size = 15
-        map_search_depth = 10
-        self.room_manager.generate_map(size=map_size, search_depth=map_search_depth)
-        end_time = perf_counter()
-        elapsed_time = end_time - start_time
-        print(f"[PERF] Map generation with size {map_size}, search depth {map_search_depth} took {elapsed_time:.6f} seconds.")
+        # start_time = perf_counter()
+        # map_size = 10
+        # map_search_depth = 40
+        # self.room_manager.generate_map(size=map_size, search_depth=map_search_depth)
+        # end_time = perf_counter()
+        # elapsed_time = end_time - start_time
+        # print(f"[PERF] Map generation with size {map_size}, search depth {map_search_depth} took {elapsed_time:.6f} seconds.")
 
         
         # Inherited from PlayerActionManager
@@ -514,8 +555,6 @@ class MovementManager(PlayerActionManager, RoomManager):
             print(", ".join(combatant_strings))
 
         return True
-
-
 
 
     def move_player_command(self, direction, player):
@@ -543,7 +582,6 @@ class MovementManager(PlayerActionManager, RoomManager):
 
     @classmethod
     def from_dict(cls, data, room_manager, player):
-        # TODO: Not sure how useful or needed this is
         """Create a MovementManager from a dictionary."""
         movement_manager = cls(room_manager=room_manager, player=player)
 

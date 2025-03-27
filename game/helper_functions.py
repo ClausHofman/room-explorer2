@@ -1,11 +1,13 @@
 import uuid
 import game.combatant_data as combatant_data
 from game.managers import TurnManager, RoomManager, MovementManager, SaveLoadManager, PlayerActionManager
-from game.shared_resources import stop_event
+from game.shared_resources import stop_event, game_style
+from prompt_toolkit import print_formatted_text
+from prompt_toolkit.formatted_text import  FormattedText
+
 print("helper_functions.py stop event:", stop_event)
 print(f"helper_functions.py stop_event: {id(stop_event)}")
 import game.room as room_object
-
 
 turn_manager = None
 player = None
@@ -14,7 +16,6 @@ room_manager = None
 player_action_manager = None
 start_current_player_room = None
 TURN_INTERVAL = 1000
-
 
 
 def initialize_game():
@@ -151,7 +152,9 @@ def initialize_game():
 
     # Retrieve movement manager from the turn manager
     if turn_manager.movement_manager is None:
-        print("[DEBUG initialize_game] movement_manager is None. Creating a new one.")
+        print_formatted_text(FormattedText([
+            ('class:debug', f"[DEBUG initialize_game] movement_manager is None. Creating a new one.\n")
+        ]), style=game_style)
         movement_manager = MovementManager(room_manager, player)
         turn_manager.movement_manager = movement_manager
     else:

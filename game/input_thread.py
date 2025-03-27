@@ -1,13 +1,13 @@
-from prompt_toolkit import PromptSession
+from prompt_toolkit import PromptSession, print_formatted_text
+from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.completion import WordCompleter
 from game.helper_functions import CommandCompleter
 from game.managers import RoomManager
 import threading, time
-from game.shared_resources import stop_event
+from game.shared_resources import stop_event, game_style
 from game.helper_functions import remove_creature_by_id, create_cluster_command_wrapper
-
 
 DEBUG = False
 turn_manager = None
@@ -74,6 +74,20 @@ def load_game(player, turn_manager, movement_manager):
 
 def input_thread(player, movement_manager, turn_manager):
     from game.managers import SaveLoadManager
+    from game.managers import RoomManager
+    
+    def test_colors_handler():
+        """Prints various colored text to test the output."""
+        print_formatted_text(FormattedText([
+            ('class:player', "This is player text.\n"),
+            ('class:list-commands', "This is list-commands text.\n"),
+            ('class:warning', "This is warning text.\n"),
+            ('class:success', "This is success text.\n"),
+            ('class:info', "This is info text.\n"),
+            ('class:error', "This is error text.\n"),
+            ('class:debug', "This is debug text.\n"),
+        ]), style=game_style)
+
 
     commands = {
 
@@ -97,6 +111,10 @@ def input_thread(player, movement_manager, turn_manager):
             "description": "List all available commands",
             "handler": lambda: print("Available commands:\n" + "\n".join(f"{cmd}: {details['description']}\n" for cmd, details in commands.items())),
         },
+        "test_colors": {
+            "description": "Test the color output",
+            "handler": lambda: test_colors_handler(),  # Call the handler function
+        },
         "exits": {
             "description": "Show available exits",
             "handler": lambda: movement_manager.exits(),
@@ -110,7 +128,7 @@ def input_thread(player, movement_manager, turn_manager):
         },
         "map": {
             "description": "Display a map with nearby paths",
-            "handler": lambda: turn_manager.room_manager.generate_map(size=10, search_depth=20)
+            "handler": lambda: turn_manager.room_manager.generate_map(size=9,search_depth=40)
         },
         "move": {
             "description": "Move in a specified direction (e.g., 'move north' or use shortcuts 'n', 's', 'e', 'w', 'ne', 'se', 'nw', 'sw', 'd', 'u')",
@@ -260,3 +278,13 @@ def quit_game():
 #     found_secret_room()
 #     picked_up_item("A peculiar item")
 #     critical_warning("WARNING")
+
+###
+
+# Example of defining a style (not necessary for simple colors):
+# from prompt_toolkit.styles import Style
+# my_style = Style.from_dict({
+#     'green-text': '#00aa00',  # Green
+#     'red-text': '#ff0000 bold',  # Red and bold
+# })
+# print_formatted_text(HTML('<green-text>This is green text.</green-text>'), style=my_style)

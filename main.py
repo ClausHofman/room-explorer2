@@ -1,7 +1,8 @@
-import sys, os
-# sys.path.append(f'{os.getcwd()}\game')
+import sys
+from prompt_toolkit.formatted_text import HTML, ANSI
 from game.helper_functions import initialize_game
 from game.input_thread import input_thread
+from game.shared_resources import game_colors
 import threading, time
 
 
@@ -15,6 +16,7 @@ def main():
     # print("movement_manager type:", type(start_game["movement_manager"]))
     # print("movement_manager object:", start_game["movement_manager"])
 
+    # TODO: switch behavior when using manual looking vs. displaying exits with short desc when moving
 
     # Check that argument order is correct!
     user_input_thread = threading.Thread(target=input_thread, args=(
@@ -32,9 +34,13 @@ def main():
     movement_manager = turn_manager.movement_manager
     room_manager = turn_manager.room_manager
 
-    room_manager.generate_map(size=15, search_depth=20)
+    room_manager.generate_map(size=7, search_depth=40)
+    
+    # print_formatted_text(HTML(f"<ansigreen>Type 'list_commands' for available commands.</ansigreen>"))
+    # print_formatted_text(ANSI(f"{game_colors['LIST_COMMANDS']} Type 'list_commands' for available commands. {game_colors['COLOR_RESET']}"))
 
-    print("\033[38;5;76m Type 'list_commands' for available commands. \033[38;5;76m")
+
+
     if not user_input_thread.is_alive():
         print("Input thread has unexpectedly stopped.")
 

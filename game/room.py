@@ -1,11 +1,12 @@
 import game.combatant_data as combatant_data
 from game.combatants import Player, Companion, Monster
+from game.shared_resources import room_type_data
 import random
 
 class Room:
     room_count = 0
 
-    def __init__(self, room_name="Default room name", room_short_desc="Short description", room_id=None, always_track_turns=False, in_combat=False, combat_rounds=0):
+    def __init__(self, room_name="Default room name", room_short_desc="Short description", room_id=None, always_track_turns=False, in_combat=False, combat_rounds=0, room_type="generic"):
         Room.room_count += 1  # Increment the count unconditionally
         self.room_name = room_name
         if room_id is None:
@@ -21,6 +22,7 @@ class Room:
         self.room_exits = {}
         self.room_short_desc = room_short_desc
         self.player_in_room = False
+        self.room_type = room_type
         
 
     def to_dict(self):
@@ -41,6 +43,7 @@ class Room:
                 {"type": type(entity).__name__, "data": entity.to_dict()} for entity in self.entities
             ],
             "room_exits": self.room_exits,
+            "room_type": self.room_type
         }
         return room_dict
 
@@ -60,7 +63,8 @@ class Room:
             always_track_turns=room_data.get("always_track_turns", False),
             in_combat=room_data.get("in_combat", False),
             combat_rounds=room_data.get("combat_rounds", 0),
-            room_short_desc=room_data.get("room_short_desc", "Short description")
+            room_short_desc=room_data.get("room_short_desc", "Short description"),
+            room_type=room_data.get("room_type", "generic")
         )
         
         print(f"[DEBUG FROM_DICT] Reconstructed Room: {reconstructed_room.room_id}, "
@@ -90,6 +94,21 @@ class Room:
 
         return reconstructed_room
 
+    def describe(self):
+        """Returns a detailed description of the room"""
+        from prompt_toolkit import print_formatted_text
+        from prompt_toolkit.formatted_text import FormattedText
+        from game.shared_resources import game_style
+        if self.room_type in room_type_data:
+            description = room_type_data[self.room_type]
+        else:
+            description = "You are in a strange room that cannot be described."
+        print_formatted_text(FormattedText([
+            ('class:room-name', f"{self.room_name}\n"),
+            ('class:room-desc', f"{description}\n")
+        ]), style=game_style)
+        return description
+        
 
     def connect(self, target_room, direction="Unknown", **room_ids):
         """
