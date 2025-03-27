@@ -20,7 +20,7 @@ print(f"input_thread.py stop_event: {id(stop_event)}")
 
 
 def load_game(player, turn_manager, movement_manager):
-    from game.managers import SaveLoadManager
+    from game.managers import SaveLoadManager, PlayerActionManager
     print("[DEBUG load_game] Starting to load the game.")
 
     print(f"[DEBUG load_game] Before loading: player.current_room = {player.current_room}")
@@ -62,6 +62,8 @@ def load_game(player, turn_manager, movement_manager):
             player.current_room = player_data.current_room
             
             room_manager.player = player
+        
+            PlayerActionManager(room_manager=room_manager, player=player)
 
         else:
             print(f"[ERROR load_game] Player with ID {player.id} not found in loaded data!")
@@ -72,9 +74,8 @@ def load_game(player, turn_manager, movement_manager):
 
 
 
-def input_thread(player, movement_manager, turn_manager):
+def input_thread(player, movement_manager, turn_manager, player_action_manager):
     from game.managers import SaveLoadManager
-    from game.managers import RoomManager
     
     def test_colors_handler():
         """Prints various colored text to test the output."""
@@ -121,14 +122,14 @@ def input_thread(player, movement_manager, turn_manager):
         },
         "look": {
             "description": "Look around the current room (shortcut: 'l')",
-            "handler": lambda: movement_manager.look(),
+            "handler": lambda: player_action_manager.look(),
             "shortcuts": {
                 "l": "look"
             }
         },
         "map": {
             "description": "Display a map with nearby paths",
-            "handler": lambda: turn_manager.room_manager.generate_map(size=9,search_depth=40)
+            "handler": lambda: turn_manager.room_manager.generate_map(size=13,search_depth=40)
         },
         "move": {
             "description": "Move in a specified direction (e.g., 'move north' or use shortcuts 'n', 's', 'e', 'w', 'ne', 'se', 'nw', 'sw', 'd', 'u')",

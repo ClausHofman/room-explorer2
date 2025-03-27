@@ -77,7 +77,7 @@ def initialize_game():
     room2 = room_object.Room()
     room_manager.add_room(room2)
 
-    room3 = room_object.Room(room_short_desc="Test short description")
+    room3 = room_object.Room()
     room_manager.add_room(room3)
 
     room1.connect(room2, "north")
@@ -630,8 +630,9 @@ def create_cluster_command(room_manager, player):
             continue
         while True:
             try:
-                width = int(input("Enter the width of the cluster:\n"))
-                length = int(input("Enter the length of the cluster:\n"))
+                width = int(input("Enter the width of the cluster (horizontal axis):\n"))
+                length = int(input("Enter the length of the cluster (vertical axis):\n"))
+
                 if width < 1 or length < 1:
                     print("Width and length must be greater than 0.")
                     continue

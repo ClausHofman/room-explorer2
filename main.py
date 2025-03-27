@@ -1,10 +1,7 @@
 import sys
-from prompt_toolkit.formatted_text import HTML, ANSI
 from game.helper_functions import initialize_game
 from game.input_thread import input_thread
-from game.shared_resources import game_colors
 import threading, time
-
 
 def main():
     from game.input_thread import stop_event
@@ -23,6 +20,7 @@ def main():
         start_game["player"],
         start_game["movement_manager"],
         start_game["turn_manager"],
+        start_game["player_action_manager"]
         ), daemon=True)
     
     user_input_thread.start()
@@ -38,7 +36,6 @@ def main():
     
     # print_formatted_text(HTML(f"<ansigreen>Type 'list_commands' for available commands.</ansigreen>"))
     # print_formatted_text(ANSI(f"{game_colors['LIST_COMMANDS']} Type 'list_commands' for available commands. {game_colors['COLOR_RESET']}"))
-
 
 
     if not user_input_thread.is_alive():

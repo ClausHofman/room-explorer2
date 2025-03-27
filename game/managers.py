@@ -1,25 +1,40 @@
-import json, threading, copy, time
+import json, threading, copy, time, random
 from prompt_toolkit import print_formatted_text, ANSI
+from prompt_toolkit.formatted_text import FormattedText
+from game.shared_resources import room_type_data, game_style
+import random
 
 class PlayerActionManager():
     def __init__(self, room_manager=None, player=None):
         self.room_manager = room_manager
         self.player = player
     
-    # Called when the player moves with MovementManager
-    def exits(self):
-        # Display exits
-        current_room = self.room_manager.room_lookup[self.player.current_room]
-        exits_str = ", ".join(current_room.room_exits.keys())
-        print(f"Exits: {exits_str}")
-
     def look(self):
-        """Displays the exits and combatants in the current room."""
+        """Displays information about the current room."""
         current_room = self.room_manager.room_lookup[self.player.current_room]
+
+        # Get a random long description of the current room
+        room_description = random.choice(room_type_data[current_room.room_type]['long_description'])
+
+        # Print the room description using prompt_toolkit's styling
+        print_formatted_text(FormattedText([
+            ('class:room-desc', f"{room_description}\n"),
+            ('class:room-desc', "Exits:")
+        ]), style=game_style)
 
         adjacent_rooms = self.room_manager.room_lookup[self.player.current_room].room_exits
+
         for direction, room_id in adjacent_rooms.items():
-            print(f"{direction}: {self.room_manager.room_lookup[room_id].room_short_desc}")
+            # print(f"{direction}: {self.room_manager.room_lookup[room_id]}") # Room object
+            # Query room type using room_lookup and room_id
+            nearby_room_type = self.room_manager.room_lookup[room_id].room_type
+            # Query key that matches room type and display description
+            # print(f"{direction}: {random.choice(room_type_data[nearby_room_type]['short_description'])}")
+            print_formatted_text(FormattedText([
+                ('class:room-exit', f"{direction}: "),  # Direction (e.g., "North: ")
+                ('class:room-nearby', f"{random.choice(room_type_data[nearby_room_type]['short_description'])}")  # Room description
+            ]), style=game_style)
+
 
         # Display combatants
         if current_room.combatants:
@@ -28,6 +43,14 @@ class PlayerActionManager():
                     print(f"  - {combatant.name} (ID: {combatant.id})")
         else:
             print("There are no combatants in the room.")
+
+    # Called when the player moves with MovementManager
+    def exits(self):
+        # Display exits
+        current_room = self.room_manager.room_lookup[self.player.current_room]
+        exits_str = ", ".join(current_room.room_exits.keys())
+        print(f"Exits: {exits_str}")
+
 
 
 
@@ -319,12 +342,12 @@ class RoomManager:
         # Hardcode colors for symbols
         symbol_colors = {
             "#": "\033[92m",  # Green for "#"
-            "o": "\033[93m",  # Yellow for "o"
-            "-": "\033[38;2;180;180;180m",
+            "o": "\033[38;5;250m",
+            "-": "\033[97m",  # White for "-"
             "X": "\033[38;5;165m",
-            "/": "\033[38;2;180;180;180m",
-            "\\": "\033[38;2;180;180;180m",
-            "|": "\033[38;2;180;180;180m"
+            "/": "\033[97m",  # White for "/"
+            "\\": "\033[97m",  # White for "\"
+            "|": "\033[97m",  # White for "|"
         }
 
         map_symbols = {
@@ -353,22 +376,23 @@ class RoomManager:
             "northwest": "\\"
         }
 
-        middle_cell = f"row{size // 2 + 1}col{size // 2 + 1}"  # Calculate the middle cell
+        middle_cell = f"row{size // 2 + 1}col{size // 2 + 1}"  # Calculate the middle cell, needed for first new_rooms key
         if DEBUG:
             print(f"[DEBUG] Calculated middle_cell: {middle_cell}")
 
-        # Get the player's current room (middle_cell) exits
+        # Get the player's room object
         current_room = self.room_lookup[self.player.current_room]
         if DEBUG:
             print(f"[DEBUG] Current room: {self.player.current_room}, Exits: {current_room.room_exits}")
 
-        # Store the player room ID
+        # Store the player room's ID for later use
         player_room = self.room_lookup[self.player.current_room].room_id
         
-
         # Step 1: Initialize new_rooms with the middle_cell and its exits
         new_rooms = {middle_cell: current_room.room_exits or {}}
-        found_room_ids = [self.player.current_room]  # Track visited rooms by ID
+        # Track found rooms
+        found_room_ids = [self.player.current_room]
+        # Place the player symbol in the middle of the grid (for odd number size grids)
         grid[middle][middle] = map_symbols["map_player"]
         room_process_count = {}  # Track how many times each room has been processed
         current_depth = 1
@@ -384,12 +408,12 @@ class RoomManager:
             rooms_to_add = {}  # Dictionary to store rooms to add
             rooms_to_remove = []  # List to store rooms to remove
 
-            # Process each room in new_rooms
+            # Start processing keys in new_rooms
             for cell_key in list(new_rooms.keys()):
                 if DEBUG:
                     print(f"[DEBUG] Processing cell_key: {cell_key}")
                     
-                # Extract room row/col positions
+                # Extract room row/col positions using slice
                 row, col = map(int, [cell_key[3:cell_key.index("col")], cell_key[cell_key.index("col") + 3:]])
                 room_row, room_col = (row - 1) * 2, (col - 1) * 2  # Adjust for grid with paths
                 if DEBUG:
@@ -397,7 +421,10 @@ class RoomManager:
 
                 # Process each direction and the connected room
                 for direction, new_rooms_room_id in new_rooms[cell_key].items():
-                    print(f"[DEBUG] Checking direction: {direction}, Connection data: {new_rooms_room_id}")
+                    if DEBUG:
+                        print(f"[DEBUG] Checking direction: {direction}, Connection data: {new_rooms_room_id}")
+                        
+                    # Ignore up and down directions
                     if direction == "up" or direction == "down":
                         continue
 
@@ -417,7 +444,7 @@ class RoomManager:
                     room_process_count[room_id] += 1
 
                     # Increase room_process_count if map is behaving funnily, it might not show rooms in some scenarios and more processing is needed
-                    if room_process_count[room_id] > 10:
+                    if room_process_count[room_id] > 4:
                         if DEBUG:
                             print(f"[DEBUG] Room {room_id} processed {room_process_count[room_id]} times, skipping.")
                         continue
@@ -440,11 +467,10 @@ class RoomManager:
                         grid[path_row][path_col] = map_direction_representations[direction]
                         if DEBUG:
                             print(f"[DEBUG] Updated path: {grid[path_row][path_col]} at ({path_row}, {path_col})")
-
-                    print(f"[DEBUG] room_id = {room_id}, player_room = {player_room}")
+                        
+                    # Skip placing anything over the player's position because player symbol is already set
                     if room_id == player_room:
-                        print(f"[DEBUG] Skipping update for player position at ({next_room_row}, {next_room_col})")
-                        continue  # Skip placing anything over the player's position
+                        continue
 
                     # Otherwise, update the room as usual
                     if 0 <= next_room_row < len(grid) and 0 <= next_room_col < len(grid):
@@ -477,7 +503,6 @@ class RoomManager:
             if DEBUG:
                 print(f"[DEBUG] Moving to next depth level.")
 
-
         # Print the final grid
         if DEBUG:
             print(f"[DEBUG] Final grid:")
@@ -490,8 +515,6 @@ class RoomManager:
                 else:
                     row_string += str(cell)  # In case it is already an ANSI object like "X"
             print_formatted_text(ANSI(row_string))
-
-
 
 
 class MovementManager(PlayerActionManager, RoomManager):

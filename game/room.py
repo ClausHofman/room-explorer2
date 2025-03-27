@@ -6,7 +6,7 @@ import random
 class Room:
     room_count = 0
 
-    def __init__(self, room_name="Default room name", room_short_desc="Short description", room_id=None, always_track_turns=False, in_combat=False, combat_rounds=0, room_type="generic"):
+    def __init__(self, room_name="Default room name", room_id=None, always_track_turns=False, in_combat=False, combat_rounds=0, room_type="generic_random"):
         Room.room_count += 1  # Increment the count unconditionally
         self.room_name = room_name
         if room_id is None:
@@ -20,7 +20,6 @@ class Room:
         self.combatants = []  # Holds Player, Companion, and Monster objects
         self.entities = []  # Not in use, could be used for other objects in the future
         self.room_exits = {}
-        self.room_short_desc = room_short_desc
         self.player_in_room = False
         self.room_type = room_type
         
@@ -100,9 +99,8 @@ class Room:
         from prompt_toolkit.formatted_text import FormattedText
         from game.shared_resources import game_style
         if self.room_type in room_type_data:
-            description = room_type_data[self.room_type]
-        else:
-            description = "You are in a strange room that cannot be described."
+            description = room_type_data[self.room_type]["long_description"]
+            
         print_formatted_text(FormattedText([
             ('class:room-name', f"{self.room_name}\n"),
             ('class:room-desc', f"{description}\n")

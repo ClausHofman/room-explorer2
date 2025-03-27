@@ -1,17 +1,91 @@
 from prompt_toolkit.styles import Style
 import threading
+import random
 
 # Initialize stop_event
 stop_event = threading.Event()
 
-
 room_type_data = {
-    "forest": "You are in a dense forest. Sunlight filters through the leaves above.",
-    "cave": "You are in a dark, damp cave. Water drips from the ceiling.",
-    "town": "You are in a bustling town square. People are going about their business.",
-    "dungeon": "You are in a dark and foreboding dungeon. The air is thick with the smell of decay.",
-    "generic": "You are in a nondescript room.",
-    # Add more room types and descriptions here
+    "forest_random": {
+        "short_description": [
+            "A dense forest.",
+            "Towering trees in a lush forest.",
+            "A thick forest with overgrown vines."
+        ],
+        "long_description": [
+            "Sunlight filters through the leaves above, and the air is filled with the scent of earth and greenery.",
+            "The forest floor is soft and damp, with birds chirping high above.",
+            "A cool breeze flows through the trees, carrying the scent of pine and moss."
+        ]
+    },
+    "forest_fixed": {
+        "short_description": "A dense forest.",
+        "long_description": "Sunlight filters through the leaves above, and the air is filled with the scent of earth and greenery."
+    },
+    "cave_random": {
+        "short_description": [
+            "A dark, damp cave.",
+            "A shadowy cave with heavy, moist air.",
+            "A cold and oppressive cave."
+        ],
+        "long_description": [
+            "Water drips from the ceiling, and the air smells of moisture and decay. The walls are slick with dampness.",
+            "The silence is deafening, broken only by the occasional sound of dripping water.",
+            "The floor is uneven and wet, and you can hear the faint echo of distant sounds."
+        ]
+    },
+    "cave_fixed": {
+        "short_description": "A dark, damp cave.",
+        "long_description": "Water drips from the ceiling, and the air smells of moisture and decay. The walls are slick with dampness."
+    },
+    "town_random": {
+        "short_description": [
+            "A bustling town square.",
+            "A busy town square filled with merchants and townsfolk.",
+            "A crowded town square with people going about their business."
+        ],
+        "long_description": [
+            "People are going about their business, walking between stalls selling goods. The air is filled with the hum of conversation and clinking coins.",
+            "Vendors are calling out their wares, and children run around, laughing and playing.",
+            "A light breeze rustles the leaves of nearby trees, and the sounds of the town fill the air."
+        ]
+    },
+    "town_fixed": {
+        "short_description": "A bustling town square.",
+        "long_description": "People are going about their business, walking between stalls selling goods. The air is filled with the hum of conversation and clinking coins."
+    },
+    "dungeon_random": {
+        "short_description": [
+            "A dark and foreboding dungeon.",
+            "A cold and oppressive dungeon with narrow stone passages.",
+            "A dimly lit dungeon, thick with dust and age."
+        ],
+        "long_description": [
+            "The air is thick with the smell of decay, and the walls are covered in moss. Strange noises echo through the corridors.",
+            "The dungeon is damp and musty, with flickering torchlight casting long shadows across the stone floor.",
+            "Chains rattle faintly in the distance, and the stone walls seem to close in around you."
+        ]
+    },
+    "dungeon_fixed": {
+        "short_description": "A dark and foreboding dungeon.",
+        "long_description": "The air is thick with the smell of decay, and the walls are covered in moss. Strange noises echo through the corridors."
+    },
+    "generic_random": {
+        "short_description": [
+            "A nondescript room.",
+            "A plain and featureless room.",
+            "A small, unremarkable room."
+        ],
+        "long_description": [
+            "The room is plain and unremarkable, with only bare walls and a floor of smooth stone.",
+            "There is nothing in this room, except for the cold, unyielding walls around you.",
+            "The air feels stale and lifeless, as if no one has entered this room in years."
+        ]
+    },
+    "generic_fixed": {
+        "short_description": "A nondescript room.",
+        "long_description": "The room is plain and unremarkable, with only bare walls and a floor of smooth stone."
+    }
 }
 
 
