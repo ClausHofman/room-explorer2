@@ -1,24 +1,15 @@
-import game.combatant_data as combatant_data
 
 class Combatant:
-    def __init__(self, combatant_id, name, stats, hates_all=False, hates_player_and_companions=False, hates=None, monster_type=None):
-        """
-        :param combatant_id: Unique ID for the combatant.
-        :param name: Name of the combatant.
-        :param stats: A dictionary containing combatant stats (health, attack, defense, etc.).
-        :param hates_all: Whether the combatant hates all entities.
-        :param hates_player_and_companions: Whether the combatant hates the player and companions.
-        :param hates: Specific entities the combatant hates.
-        :param monster_type: Type of the combatant, if applicable (e.g., "dragon").
-        """
+    def __init__(self, combatant_id, name, stats, level, hates_all=False, hates_player_and_companions=False, hates=None, monster_type=None):
         self.id = combatant_id
         self.name = name
         self.stats = stats
+        self.level = level
         self.hates_all = hates_all
         self.hates_player_and_companions = hates_player_and_companions
-        self.hates = hates or []  # Defaults to an empty list if not provided
+        self.hates = hates or []
         self.monster_type = monster_type
-        self.grudge_list = []  # Tracks IDs of entities this combatant is hostile toward
+        self.grudge_list = []
         self.current_room = None
 
     def is_alive(self):
@@ -43,6 +34,7 @@ class Combatant:
             "id": self.id,
             "name": self.name,
             "stats": self.stats,
+            "level": self.level,
             "hates_all": self.hates_all,
             "hates_player_and_companions": self.hates_player_and_companions,
             "hates": self.hates,
@@ -64,12 +56,13 @@ class Combatant:
                     "health": data["stats"]["health"],
                     "attack": data["stats"]["attack"],
                     "defense": data["stats"]["defense"]}
-        status_effects = data.get("status_effect", {"buffs": {}, "debuffs": {}})
+        status_effects = data.get("status_effect", {"buffs": {}, "debuffs": {}}) # TODO: Check this
 
         instance = cls(
             combatant_id=data["id"],
             name=data["name"],
             stats = stats,
+            level=data.get("level", 1),
             hates_all=data.get("hates_all", False),
             hates_player_and_companions=data.get("hates_player_and_companions", False),
             hates=data.get("hates", []),
@@ -82,9 +75,10 @@ class Combatant:
 
 
 class Player(Combatant):
-    def __init__(self, combatant_id, name, stats, hates_all, hates_player_and_companions, hates, monster_type, has_traits, all_creature_traits_data, status_data, current_room=None, selected_traits=None):
-        super().__init__(combatant_id, name, stats, hates_all, hates_player_and_companions, hates, monster_type)
+    def __init__(self, combatant_id, name, stats, level, hates_all, hates_player_and_companions, hates, monster_type, has_traits, all_creature_traits_data, status_data, current_room=None, selected_traits=None):
+        super().__init__(combatant_id, name, stats, level, hates_all, hates_player_and_companions, hates, monster_type)
         from game.managers import CombatantManager
+        self.level = level
         self.has_traits = has_traits
         self.combatant_manager = CombatantManager(
             traits_dict=all_creature_traits_data,
@@ -128,13 +122,14 @@ class Player(Combatant):
             combatant_id=data["id"],
             name=data["name"],
             stats=stats,
+            level=data.get("level", 1),
             hates_all=data.get("hates_all", False),
             hates_player_and_companions=data.get("hates_player_and_companions", False),
             hates=data.get("hates", []),
             monster_type=data.get("monster_type", None),
             has_traits=data.get("has_traits", {}),
             all_creature_traits_data=data.get("all_creature_traits_data", {}),
-            status_data=status_data,  # Pass status_effect
+            status_data=status_data,
             selected_traits=data.get("selected_traits", None),
             current_room=data.get("current_room", None)
         )
@@ -142,8 +137,9 @@ class Player(Combatant):
 
 
 class Companion(Combatant):
-    def __init__(self, combatant_id, name, stats, hates_all, hates_player_and_companions, hates, monster_type, has_traits, all_creature_traits_data, status_data, current_room=None, selected_traits=None):
-        super().__init__(combatant_id, name, stats, hates_all, hates_player_and_companions, hates, monster_type)
+    def __init__(self, combatant_id, name, stats, level, hates_all, hates_player_and_companions, hates, monster_type, has_traits, all_creature_traits_data, status_data, current_room=None, selected_traits=None):
+        super().__init__(combatant_id, name, stats, level, hates_all, hates_player_and_companions, hates, monster_type)
+        self.level = level
         self.has_traits = has_traits
         from game.managers import CombatantManager
         self.combatant_manager = CombatantManager(
@@ -187,6 +183,7 @@ class Companion(Combatant):
             combatant_id=data["id"],
             name=data["name"],
             stats=stats,
+            level=data.get("level", 1),
             hates_all=data.get("hates_all", False),
             hates_player_and_companions=data.get("hates_player_and_companions", False),
             hates=data.get("hates", []),
@@ -200,23 +197,17 @@ class Companion(Combatant):
 
 
 class Monster(Combatant):
-    def __init__(self, combatant_id, name, stats, hates_all, hates_player_and_companions, hates, monster_type, has_traits, all_creature_traits_data, status_data, current_room=None, selected_traits=None):
+    def __init__(self, combatant_id, name, stats, level, hates_all, hates_player_and_companions, hates, monster_type, has_traits, all_creature_traits_data, status_data, current_room=None, selected_traits=None):
         """
-        :param combatant_id: Unique ID for the combatant.
-        :param name: Name of the monster.
-        :param stats: A dictionary containing stats (health, attack, defense, etc.).
-        :param hates_all: Whether the monster hates all entities.
-        :param hates_player_and_companions: Whether the monster hates the player and companions.
-        :param hates: Specific entities the monster hates.
-        :param monster_type: Type of the monster.
-        :param has_traits: The monster's default traits.
-        :param all_creature_traits_data: A dictionary of all optional traits.
-        :param status_data: A dictionary containing buffs and debuffs.
-        :param selected_traits: A list of selected traits.
+        :param level: The level of the monster, which affects its stats and descriptions.
         """
-        super().__init__(combatant_id, name, stats, hates_all, hates_player_and_companions, hates, monster_type)
+        # Include the 'level' argument when calling the parent constructor
+        super().__init__(combatant_id, name, stats, level, hates_all, hates_player_and_companions, hates, monster_type)
+        
+        self.level = level
         self.has_traits = has_traits
         self.current_room = current_room
+        
         from game.managers import CombatantManager
         self.combatant_manager = CombatantManager(
             traits_dict=all_creature_traits_data,
@@ -253,6 +244,7 @@ class Monster(Combatant):
         base.update({
             "name": self.name,
             "stats": self.stats,
+            "level": self.level,
             "has_traits": {key: value for key, value in self.has_traits.items()},
             "current_room": self.current_room,
             "all_creature_traits_data": self.combatant_manager.all_traits,
@@ -279,6 +271,7 @@ class Monster(Combatant):
             combatant_id=data["id"],
             name=data["name"],
             stats=stats,
+            level=data.get("level", 1),
             hates_all=data.get("hates_all", False),
             hates_player_and_companions=data.get("hates_player_and_companions", False),
             hates=data.get("hates", []),

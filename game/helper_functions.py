@@ -1,4 +1,4 @@
-import uuid
+import uuid, os
 import game.combatant_data as combatant_data
 from game.managers import TurnManager, RoomManager, MovementManager, SaveLoadManager, PlayerActionManager
 from game.shared_resources import stop_event, game_style
@@ -15,7 +15,7 @@ movement_manager = None
 room_manager = None
 player_action_manager = None
 start_current_player_room = None
-TURN_INTERVAL = 1000
+TURN_INTERVAL = 5
 
 
 def initialize_game():
@@ -35,6 +35,7 @@ def initialize_game():
         creature_data=combatant_data.creature_data,
         creature_traits=combatant_data.creature_traits_data,
         status_data=combatant_data.creature_status_data,
+        level=5,
         selected_traits=selected_traits_for_dragon
     )
     player = create_player(
@@ -86,8 +87,8 @@ def initialize_game():
     room3.connect(room1, "west")
 
     room1.add_combatant(player)
-
-
+    room1.player_in_room=True
+    
 
     # print(player_action_manager)
     print("---------------- DEBUG ROOM LOOKUP ------------------")
@@ -107,6 +108,7 @@ def initialize_game():
 
     room1.add_combatant(companion1)
     room1.add_combatant(dragon1)
+    print(dragon1.describe())
 
     print(room_manager.room_lookup[f"{dragon1.current_room}"].room_exits)
 
@@ -231,6 +233,7 @@ def create_companion(creature_type, companion_data, creature_traits, status_data
         combatant_id=combatant_id,
         name=companion_info["name"],
         stats=stats,
+        level=companion_info.get("level", 1),
         hates_all=companion_info.get("hates_all", False),
         hates_player_and_companions=companion_info.get("hates_player_and_companions", False),
         hates=companion_info.get("hates", []),
@@ -274,6 +277,7 @@ def create_player(creature_type, player_data, creature_traits, status_data, sele
         combatant_id=combatant_id,
         name=player_info["name"],
         stats=stats,
+        level=player_info.get("level", 1),
         hates_all=player_info.get("hates_all", False),
         hates_player_and_companions=player_info.get("hates_player_and_companions", False),
         hates=player_info.get("hates", []),
@@ -284,39 +288,32 @@ def create_player(creature_type, player_data, creature_traits, status_data, sele
         selected_traits=selected_traits
     )
 
-def create_creature(creature_type, creature_data, creature_traits, status_data, selected_traits=None):
+def create_creature(creature_type, creature_data, creature_traits, status_data, level, selected_traits=None):
     from game.combatants import Monster
-    """
-    Creates a Monster object by extracting the data for the given creature type.
 
-    :param creature_type: The type of the creature (e.g., "dragon").
-    :param creature_data: A dictionary containing data for all creatures.
-    :param creature_traits: A dictionary containing optional traits.
-    :param status_data: A dictionary containing buffs and debuffs.
-    :param selected_traits: A list of selected traits.
-    :return: A fully initialized Monster object.
-    """
     if creature_type not in creature_data:
         raise ValueError(f"Creature type '{creature_type}' does not exist in creature_data.")
     
-    # Extract specific creature's data
     creature_info = creature_data[creature_type]
     
-    # Construct combatant stats
+    # Calculate final stats using base stats and per-level scaling
+    health = creature_info["health"] + (creature_info["health_per_level"] * (level - 1))
+    attack = creature_info["attack"] + (creature_info["attack_per_level"] * (level - 1))
+    defense = creature_info["defense"] + (creature_info["defense_per_level"] * (level - 1))
+    
     stats = {
-        "health": creature_info["health"],
-        "attack": creature_info["attack"],
-        "defense": creature_info["defense"]
+        "health": health,
+        "attack": attack,
+        "defense": defense
     }
     
-    # Generate a unique combatant ID
     combatant_id = f"{creature_type}_{uuid.uuid4().hex[:6]}"
     
-    # Return a Monster object
     return Monster(
         combatant_id=combatant_id,
         name=creature_info["name"],
         stats=stats,
+        level=level,
         hates_all=creature_info.get("hates_all", False),
         hates_player_and_companions=creature_info.get("hates_player_and_companions", False),
         hates=creature_info.get("hates", []),
@@ -326,6 +323,9 @@ def create_creature(creature_type, creature_data, creature_traits, status_data, 
         status_data=status_data,
         selected_traits=selected_traits
     )
+
+
+    return monster  # Level is now stored in the monster itself
 
 
 from prompt_toolkit import PromptSession
@@ -675,3 +675,12 @@ def create_cluster_command_wrapper():
         create_room_cluster(turn_manager.room_manager, start_room, direction, width, length, internal_connections)
         print(f"{width}x{length} room cluster created to the {direction} of room '{start_room.room_id}'.")
         return
+
+
+def clear_screen():
+    # For Windows
+    if os.name == 'nt':
+        os.system('cls')
+    # For Mac and Linux
+    else:
+        os.system('clear')

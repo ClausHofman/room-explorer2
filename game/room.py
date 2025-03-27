@@ -93,20 +93,6 @@ class Room:
 
         return reconstructed_room
 
-    def describe(self):
-        """Returns a detailed description of the room"""
-        from prompt_toolkit import print_formatted_text
-        from prompt_toolkit.formatted_text import FormattedText
-        from game.shared_resources import game_style
-        if self.room_type in room_type_data:
-            description = room_type_data[self.room_type]["long_description"]
-            
-        print_formatted_text(FormattedText([
-            ('class:room-name', f"{self.room_name}\n"),
-            ('class:room-desc', f"{description}\n")
-        ]), style=game_style)
-        return description
-        
 
     def connect(self, target_room, direction="Unknown", **room_ids):
         """
@@ -421,6 +407,7 @@ class Room:
                 creature_data=combatant_data.creature_data,
                 creature_traits=combatant_data.creature_traits_data,
                 status_data=combatant_data.creature_status_data,
+                level=5
                 # selected_traits=selected_traits_for_dragon # Would need to use default traits or maybe random ones
             )
             self.add_combatant(monster)

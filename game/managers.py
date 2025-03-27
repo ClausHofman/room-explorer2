@@ -528,6 +528,7 @@ class MovementManager(PlayerActionManager, RoomManager):
     def move_player(self, player, direction):
         from time import perf_counter
         """Handles moving the player to another room."""
+
         current_room = self.room_manager.room_lookup[player.current_room]
 
         if direction not in current_room.room_exits:
@@ -540,7 +541,7 @@ class MovementManager(PlayerActionManager, RoomManager):
 
         # Remove player from current room
         current_room.player_in_room = False
-        print(f"[DEBUG Player is in room] Player left room {current_room.room_id}, player is in room {current_room.room_id}: {current_room.player_in_room}")
+        # print(f"[DEBUG Player is in room] Player left room {current_room.room_id}, player is in room {current_room.room_id}: {current_room.player_in_room}")
         current_room.remove_combatant_by_id(player.id)
 
         # Add player to target room and reset grudge list
@@ -566,7 +567,7 @@ class MovementManager(PlayerActionManager, RoomManager):
 
         # Check hostility after moving
         target_room.player_in_room = True
-        print(f"[DEBUG Player is in room] Player moved to {target_room.room_id} and is now in room {target_room.room_id}: {target_room.player_in_room}")
+        # print(f"[DEBUG Player is in room] Player moved to {target_room.room_id} and is now in room {target_room.room_id}: {target_room.player_in_room}")
         target_room.detect_hostility(0)
 
         print(f"You move from {current_room.room_name} to {target_room.room_name} in the {direction}.")
@@ -576,7 +577,7 @@ class MovementManager(PlayerActionManager, RoomManager):
         if other_combatants:
             combatant_strings = [f"{combatant.name}" for combatant in other_combatants]
             print(", ".join(combatant_strings))
-
+        
         return True
 
 

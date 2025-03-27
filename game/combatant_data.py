@@ -4,6 +4,7 @@ companion_data = {
     "health": 100,
     "attack": 50,
     "defense": 30,
+    "level": 1,
     "name": "Companion A",
     "hates_all": False,
     "hates_player_and_companions": False,
@@ -13,59 +14,90 @@ companion_data = {
     }
 }
 
-# Example creature_data dictionary (with default traits)
 creature_data = {
-    "dragon": {
-        "id": "dragon",
-        "name": "Flame Wyvern",
-        "health": 100,
-        "attack": 50,
-        "defense": 30,
-        "hates_all": True,
-        "hates_player_and_companions": False,
-        "hates": [],
-        "monster_type": "dragon",
-        "has_traits": {
-            "scales": "Impenetrable",
-            "hoard_guarding": "Aggressive"
-        }},
     "goblin": {
         "id": "goblin",
         "name": "Small sneaky goblin",
-        "health": 50,
-        "attack": 12,
-        "defense": 5,
+        "health": 5,               
+        "attack": 2,               
+        "defense": 2,     
+        "level": 1,          
+        "health_per_level": 5,     
+        "attack_per_level": 3,      
+        "defense_per_level": 2,     
         "hates_all": False,
         "hates_player_and_companions": False,
         "hates": ["animal"],
         "monster_type": "goblin",
         "has_traits": {}
     },
+    "dragon": {
+        "id": "dragon",
+        "name": "Flame Wyvern",
+        "health": 20,             
+        "attack": 4,              
+        "defense": 4,
+        "level": 1,
+        "health_per_level": 20,    
+        "attack_per_level": 5,     
+        "defense_per_level": 4,    
+        "hates_all": True,
+        "hates_player_and_companions": False,
+        "hates": [],
+        "monster_type": "dragon",
+        "has_traits": {"fire_breath": True}
+    },
     "wolf": {
         "id": "wolf",
         "name": "Young wolf",
-        "health": 60,
-        "attack": 15,
-        "defense": 7,
-        "hates_all": True,
+        "health": 10,              
+        "attack": 3,              
+        "defense": 4,              
+        "level": 1,
+        "health_per_level": 10,    
+        "attack_per_level": 5,     
+        "defense_per_level": 4,    
+        "hates_all": False,
         "hates_player_and_companions": False,
+        "hates": ["animal"],
         "monster_type": "wolf",
         "has_traits": {}
     },
     "rabbit": {
         "id": "rabbit",
         "name": "Small rabbit",
-        "health": 30,
-        "attack": 5,
-        "defense": 2,
+        "health": 3,              
+        "level": 1,
+        "attack": 1,               
+        "defense": 1,              
+        "health_per_level": 4,     
+        "attack_per_level": 1,     
+        "defense_per_level": 1,    
         "hates_all": False,
         "hates_player_and_companions": False,
         "hates": [],
         "monster_type": "rabbit",
         "has_traits": {}
+    }
+}
+
+player_data = {
+    "player":{
+        "id": "player",
+        "health": 200,
+        "attack": 50,
+        "defense": 30,
+        "level": 1,
+        "name": "Claus",
+        "hates_all": False,
+        "hates_player_and_companions": False,
+        "hates": [],
+        "monster_type": "player",
+        "has_traits": {
+            "admin": "Mysterious admin powers"
         }
     }
-
+}
 
 # Example creature_traits dictionary (optional traits)
 creature_traits_data = {
@@ -87,19 +119,3 @@ creature_status_data = {
     }
 }
 
-player_data = {
-    "player":{
-        "id": "player",
-        "health": 200,
-        "attack": 50,
-        "defense": 30,
-        "name": "Claus",
-        "hates_all": False,
-        "hates_player_and_companions": False,
-        "hates": [],
-        "monster_type": "player",
-        "has_traits": {
-            "admin": "Mysterious admin powers"
-        }
-    }
-}

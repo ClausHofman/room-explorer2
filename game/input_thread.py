@@ -1,13 +1,14 @@
-from prompt_toolkit import PromptSession, print_formatted_text
+import sys
+from prompt_toolkit import PromptSession, print_formatted_text, ANSI
 from prompt_toolkit.formatted_text import FormattedText
 from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.completion import WordCompleter
 from game.helper_functions import CommandCompleter
 from game.managers import RoomManager
-import threading, time
 from game.shared_resources import stop_event, game_style
-from game.helper_functions import remove_creature_by_id, create_cluster_command_wrapper
+from game.helper_functions import remove_creature_by_id, create_cluster_command_wrapper, clear_screen
+import threading
 
 DEBUG = False
 turn_manager = None
@@ -73,7 +74,6 @@ def load_game(player, turn_manager, movement_manager):
         print("[ERROR load_game] Failed to load game.")
 
 
-
 def input_thread(player, movement_manager, turn_manager, player_action_manager):
     from game.managers import SaveLoadManager
     
@@ -91,7 +91,6 @@ def input_thread(player, movement_manager, turn_manager, player_action_manager):
 
 
     commands = {
-
         "create_cluster": {
             "description": "Create a room cluster in a specified direction.",
             "handler": create_cluster_command_wrapper,  # Use the wrapper here
@@ -156,6 +155,10 @@ def input_thread(player, movement_manager, turn_manager, player_action_manager):
             "description": "Display information about the current room",
             "handler": lambda: turn_manager.room_manager.get_room_info()
         },
+        "clear": {
+            "description": "Clear the screen",
+            "handler": lambda: clear_screen(),
+        },          
         "quit": {
             "description": "Quit the game",
             "handler": lambda: quit_game(),
@@ -171,11 +174,7 @@ def input_thread(player, movement_manager, turn_manager, player_action_manager):
     }
 
 
-    command_completer = WordCompleter(
-        [f"{cmd} " for cmd in commands.keys()],
-        ignore_case=True
-    )
-
+    command_completer = WordCompleter([f"{cmd} " for cmd in commands.keys()], ignore_case=True)
     history = InMemoryHistory()
     command_completer = CommandCompleter(commands)
     

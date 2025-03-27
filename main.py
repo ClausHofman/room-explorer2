@@ -13,8 +13,6 @@ def main():
     # print("movement_manager type:", type(start_game["movement_manager"]))
     # print("movement_manager object:", start_game["movement_manager"])
 
-    # TODO: switch behavior when using manual looking vs. displaying exits with short desc when moving
-
     # Check that argument order is correct!
     user_input_thread = threading.Thread(target=input_thread, args=(
         start_game["player"],
@@ -53,7 +51,6 @@ def main():
     finally:
         print("All threads have stopped. Exiting program.")
         sys.exit()  # Exit the program cleanly
-
 
 if __name__ == "__main__":
     main()
