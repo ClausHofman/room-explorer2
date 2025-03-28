@@ -22,6 +22,9 @@ class Room:
         self.room_exits = {}
         self.player_in_room = False
         self.room_type = room_type
+        self.in_combat = in_combat
+        self.active_room = False
+        self.room_manager = None
         
 
     def to_dict(self):
@@ -30,7 +33,6 @@ class Room:
             combatant.current_room = self.room_id
         room_dict = {
             "room_name": self.room_name,
-            "room_short_desc": self.room_short_desc,
             "room_id": self.room_id,
             "in_combat": self.in_combat,
             "combat_rounds": self.combat_rounds,
@@ -42,7 +44,8 @@ class Room:
                 {"type": type(entity).__name__, "data": entity.to_dict()} for entity in self.entities
             ],
             "room_exits": self.room_exits,
-            "room_type": self.room_type
+            "room_type": self.room_type,
+            "active_room": self.active_room
         }
         return room_dict
 
@@ -62,7 +65,6 @@ class Room:
             always_track_turns=room_data.get("always_track_turns", False),
             in_combat=room_data.get("in_combat", False),
             combat_rounds=room_data.get("combat_rounds", 0),
-            room_short_desc=room_data.get("room_short_desc", "Short description"),
             room_type=room_data.get("room_type", "generic")
         )
         
@@ -73,7 +75,9 @@ class Room:
 
         # Add room_exits after initialization, here because is not in the __init__ constructor
         reconstructed_room.room_exits = room_data.get("room_exits", {})
-
+        # Add active_room after initialization
+        reconstructed_room.active_room = room_data.get("active_room", False)
+        
         # print(f"[DEBUG ROOM.PY] room_data: {room_data}")
         # Deserialize combatants
         deserialized_combatants = [
@@ -93,6 +97,21 @@ class Room:
 
         return reconstructed_room
 
+    def make_active(self):
+        """Marks the room as active and notifies the RoomManager."""
+        if not self.active_room:
+            self.active_room = True
+            if self.room_manager:
+                self.room_manager.add_room_active(self)
+                print(f"[DEBUG make_active] Room {self.room_id} is now active.")
+
+    def check_and_deactivate(self):
+        """Checks if the room should be deactivated and deactivates it if necessary."""
+        if self.active_room and not self.combatants:
+            self.active_room = False
+            if self.room_manager:
+                self.room_manager.remove_room_active(self.room_id)
+                print(f"[DEBUG check_and_deactivate] Room {self.room_id} is now inactive.")    
 
     def connect(self, target_room, direction="Unknown", **room_ids):
         """
@@ -148,9 +167,9 @@ class Room:
             self.combat_rounds += 1
             print(f"Combat Round {self.combat_rounds} begins in Room {self.room_id}!")
 
-    def on_turn_advanced(self): # note: removed current_turn
+    def on_turn_advanced(self, current_turn): # TODO: might need to modify this if going for out of combat stuff that require tracking turns
         if self.in_combat:
-            self.advance_combat_round()
+            self.advance_combat_round(current_turn)
 
     def advance_combat_round(self, current_turn):
         if not self.in_combat:
@@ -204,6 +223,7 @@ class Room:
         print(f"[DEBUG] Adding combatant: {combatant.name} (ID: {combatant.id})")
         combatant.current_room = self.room_id
         self.combatants.append(combatant)
+        self.make_active() # Make room active when a combatant is added
 
     def remove_combatant_by_id(self, combatant_id):
         """
@@ -218,6 +238,7 @@ class Room:
                 self.combatants.remove(combatant)
                 combatant.current_room = None  # Optionally reset the combatant's current_room
                 return  # Exit after removing the combatant
+        self.check_and_deactivate() # Check if room should be deactivated
         print(f"[DEBUG] Combatant with ID {combatant_id} is not in the room. Skipping removal.")
 
 
@@ -333,6 +354,7 @@ class Room:
         self.in_combat = False
         self.combat_start_turn = 0
         self.combat_rounds = 0
+        self.check_and_deactivate() # Check if room should be deactivated
         print(f"Combat ends in Room {self.room_id}.")
 
     def remove_defeated_grudges(self, defeated_id):

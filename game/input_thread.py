@@ -20,51 +20,82 @@ print("input_thread.py stop event:", stop_event)
 print(f"input_thread.py stop_event: {id(stop_event)}")
 
 
-def load_game(player, turn_manager, movement_manager):
-    from game.managers import SaveLoadManager, PlayerActionManager
+def load_game(player, turn_manager, movement_manager, player_action_manager):
+    from game.managers import SaveLoadManager
     print("[DEBUG load_game] Starting to load the game.")
 
     print(f"[DEBUG load_game] Before loading: player.current_room = {player.current_room}")
 
+    # Attempt to load the game state from a file using SaveLoadManager
     loaded_turn_manager = SaveLoadManager.load_from_file(player)
+    
+    # Check if the loading was successful
     if loaded_turn_manager:
         print("[DEBUG load_game] Successfully loaded TurnManager from file.")
         
-        # Update the global turn_manager with the loaded one
+        # --- Update the global turn_manager with the loaded data ---
         print("[DEBUG load_game] Updating turn_manager with loaded data.")
+        # Replace the current room_manager with the loaded one
         turn_manager.room_manager = loaded_turn_manager.room_manager
+        # Restore the active_room_lookup from the loaded data
+        turn_manager.room_manager.active_room_lookup = loaded_turn_manager.room_manager.active_room_lookup
+        # Restore the current turn from the loaded data
         turn_manager.current_turn = loaded_turn_manager.current_turn
+        # Restore the movement_manager from the loaded data
         turn_manager.movement_manager = loaded_turn_manager.movement_manager
 
-        # Update the movement_manager
+        # --- Update the movement_manager with the loaded data ---
         print("[DEBUG load_game] Updating movement_manager with the loaded TurnManager's room_manager.")
+        # Set the movement_manager's room_manager to the loaded room_manager
         movement_manager.room_manager = turn_manager.room_manager
+        # Set the movement_manager's player to the current player
         movement_manager.player = player
 
-        # Retrieve the room manager
+        # --- Retrieve the room manager ---
+        # Get a reference to the room_manager from the turn_manager
         room_manager = turn_manager.room_manager
+        # Update the room_manager attribute of all rooms
+        for room in room_manager.game_rooms:
+            # Set the room_manager attribute of each room to the current room_manager
+            room.room_manager = room_manager
+        # Update the room_manager attribute of all active rooms
+        for room in room_manager.active_room_lookup.values():
+            # Set the room_manager attribute of each active room to the current room_manager
+            room.room_manager = room_manager
         print(f"[DEBUG load_game] Room manager retrieved. Total game rooms: {len(room_manager.game_rooms)}.")
 
-        # Find the player in the loaded data
+        # --- Find the player in the loaded data ---
         player_data = None
+        # Iterate through all rooms in the loaded room_manager
         for room in room_manager.game_rooms:
             print(f"[DEBUG load_game] Checking room: {room.room_id} for player.")
+            # Iterate through all combatants in the current room
             for combatant in room.combatants:
+                # Check if the current combatant is the player
                 if combatant.id == player.id:
                     print(f"[DEBUG load_game] Player with ID {player.id} found in room {room.room_id}.")
+                    # Store a reference to the player's data
                     player_data = combatant
                     print(f"Player data: {player_data}")
                     break
+            # If the player was found, exit the outer loop
             if player_data:
                 break
 
+        # --- Update the player's data with the loaded data ---
         if player_data:
             # Get the player's current_room from the loaded data
             player.current_room = player_data.current_room
             
+            # Set the room_manager's player to the current player
             room_manager.player = player
         
-            PlayerActionManager(room_manager=room_manager, player=player)
+            # --- Update the player_action_manager with the loaded data ---
+            print("[DEBUG load_game] Updating player_action_manager with loaded data.")
+            # Set the player_action_manager's room_manager to the loaded room_manager
+            player_action_manager.room_manager = room_manager
+            # Set the player_action_manager's player to the current player
+            player_action_manager.player = player
 
         else:
             print(f"[ERROR load_game] Player with ID {player.id} not found in loaded data!")
@@ -72,6 +103,7 @@ def load_game(player, turn_manager, movement_manager):
         print("[DEBUG load_game] Game loaded successfully!")
     else:
         print("[ERROR load_game] Failed to load game.")
+
 
 
 def input_thread(player, movement_manager, turn_manager, player_action_manager):
@@ -169,7 +201,7 @@ def input_thread(player, movement_manager, turn_manager, player_action_manager):
         },
             "load": {
             "description": "Load a saved game state",
-            "handler": lambda: load_game(player, turn_manager, movement_manager),
+            "handler": lambda: load_game(player, turn_manager, movement_manager, player_action_manager),
         },
     }
 

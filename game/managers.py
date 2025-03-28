@@ -58,6 +58,7 @@ class RoomManager:
     def __init__(self, player=None):
         self.game_rooms = []  # List of Room objects
         self.room_lookup = {}  # Maps room_id to Room objects
+        self.active_room_lookup = {}
         self.player = player
 
 
@@ -66,9 +67,12 @@ class RoomManager:
         for room in self.game_rooms:
             for combatant in room.combatants:
                 combatant.current_room = room.room_id
+        # Serialize active rooms
+        active_rooms_data = {room_id: room.to_dict() for room_id, room in self.active_room_lookup.items()}
         return {
             "game_rooms": [room.to_dict() for room in self.game_rooms],  # Serialize all rooms
-        }
+            "active_room_lookup": active_rooms_data,  # Serialize active rooms
+         }
 
     @classmethod
     def from_dict(cls, data):
@@ -80,6 +84,12 @@ class RoomManager:
             # Recreate the room_lookup dictionary
             for room in room_manager.game_rooms:
                 room_manager.room_lookup[room.room_id] = room
+            
+            # Recreate the active_room_lookup dictionary
+            if "active_room_lookup" in data:
+                for room_id, room_data in data["active_room_lookup"].items():
+                    room = Room.from_dict(room_data)
+                    room_manager.active_room_lookup[room_id] = room
         else:
             print("[WARNING] 'game_rooms' key missing in RoomManager data!")
         return room_manager
@@ -89,7 +99,22 @@ class RoomManager:
         room.room_manager = self
         self.game_rooms.append(room)
         self.room_lookup[room.room_id] = room
-        print(f"[DEBUG ADD ROOM] Room added: {room.room_name} ({room.room_id})")
+        # print(f"[DEBUG ADD ROOM] Room added: {room.room_name} ({room.room_id})")
+    
+    def add_room_active(self, room):
+        """Add a room to the active rooms dictionary"""
+        room.room_manager = self
+        self.active_room_lookup[room.room_id] = room
+        print(f"[DEBUG ADD ACTIVE ROOM] Room marked as active: {room.room_id}")
+
+    def remove_room_active(self, room_id):
+        """Remove a room from the active rooms dictionary"""
+        if room_id in self.active_room_lookup:
+            del self.active_room_lookup[room_id]
+            print(f"[DEBUG REMOVE ACTIVE ROOM] Room removed: {room_id}")
+        else:
+            print(f"[DEBUG REMOVE ACTIVE ROOM] Room ID {room_id} not found.")
+
 
     def create_and_connect_rooms(self, starting_room, test_mode=False, num_rooms_to_create=0):
         from game.room import Room
@@ -547,6 +572,12 @@ class MovementManager(PlayerActionManager, RoomManager):
         # Add player to target room and reset grudge list
         player.grudge_list = []
         target_room.add_combatant(player)
+        # Check if the room is active and make it active if it is not
+        if not target_room.active_room:
+            target_room.make_active()
+        # Check if the room is active and make it inactive if it is not
+        if current_room.active_room:
+            current_room.check_and_deactivate()
         player.current_room = target_room.room_id
 
         # Display map when moving
@@ -622,7 +653,6 @@ class TurnManager:
         from game.input_thread import stop_event
         self.current_turn = 0
         self.room_manager = RoomManager()
-        self.running = False
         self.stop_event = stop_event
         self.movement_manager = None
 
@@ -630,15 +660,13 @@ class TurnManager:
         self.current_turn += 1
         print(f"[DEBUG TurnManager advance_turn] Global Turn {self.current_turn} begins!")
 
-        # Notify rooms in combat
-        for room in self.room_manager.game_rooms:
-            if room.in_combat:
-                room.advance_combat_round(self.current_turn)
+        # Notify active rooms
+        for room in self.room_manager.active_room_lookup.values():
+            room.on_turn_advanced(self.current_turn)
 
     def start_timer(self, interval_seconds):
         def timer_task():
             while not self.stop_event.is_set():
-                # print(f"Timer running. stop_event.is_set(): {self.stop_event.is_set()}")
                 time.sleep(interval_seconds)
                 self.advance_turn()
 
