@@ -27,7 +27,8 @@ companion_data = {
         "monster_type": "companion",
         "skills": {
             "offensive_melee": ["poison_bite"],
-            "passive_offense": ["attack"]
+            "passive_offense": ["attack"],
+            "general": ["combat_initiative"]
         },
         "has_traits": {}
     }
@@ -61,7 +62,8 @@ creature_data = {
         "hates": ["animal"],
         "monster_type": "goblin",
         "skills": {
-            "passive_offense": ["attack"]
+            "passive_offense": ["attack"],
+            "general": ["combat_initiative"]
         },
         "has_traits": {}
     },
@@ -93,9 +95,10 @@ creature_data = {
         "monster_type": "dragon",
         "has_traits": {"fire_breath": True},
         "skills": {
-            "offensive_melee": ["fireball", "fire_breath"],
+            "offensive_melee": ["fireball"],
             "passive_defense": ["iron_skin"],
-            "passive_offense": ["attack"]
+            "passive_offense": ["attack"],
+            "general": ["combat_initiative"]
         }
     },
     "wolf": {
@@ -126,7 +129,8 @@ creature_data = {
         "monster_type": "wolf",
         "has_traits": {},
         "skills": {
-            "passive_offense": ["attack"]
+            "passive_offense": ["attack"],
+            "general": ["combat_initiative"]
         }
     },
     "rabbit": {
@@ -157,7 +161,8 @@ creature_data = {
         "monster_type": "rabbit",
         "has_traits": {},
         "skills": {
-            "passive_offense": ["attack"]
+            "passive_offense": ["attack"],
+            "general": ["combat_initiative"]
         }
     }
 }
@@ -170,8 +175,8 @@ player_data = {
         "spell_points": 100,
         "attack": 50,
         "defense": 30,
-        "strength": 1,
-        "dexterity": 1,
+        "strength": 10,
+        "dexterity": 10,
         "intelligence": 1,
         "wisdom": 1,
         "willpower": 1,
@@ -191,8 +196,9 @@ player_data = {
             "admin": "Mysterious admin powers"
         },
         "skills": {
-            "offensive_melee": ["slash", "double_slash"],
-            "passive_offense": ["attack"]
+            "offensive_melee": [],
+            "passive_offense": ["attack"],
+            "general": ["combat_initiative"]
         }
     }
 }

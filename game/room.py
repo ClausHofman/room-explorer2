@@ -173,6 +173,7 @@ class Room:
         if self.in_combat:
             self.advance_combat_round(current_turn)
 
+
     def advance_combat_round(self, current_turn):
         print(f"[DEBUG advance_combat_round] Starting advance_combat_round in Room {self.room_id}!") # Added debug statement
         if not self.in_combat:
@@ -184,7 +185,7 @@ class Room:
             print(f"[DEBUG advance_combat_round] Starting Combat Round {self.combat_rounds} in Room {self.room_id}!")
 
             # Process active combatants
-            active_combatants = [c for c in self.combatants if c.is_alive()]
+            active_combatants = [c for c in self.combatants if c.is_alive() and c.grudge_list] # Changed this line
             print(f"[DEBUG advance_combat_round] Active combatants: {[c.name for c in active_combatants]}")
 
             # Check hostility
@@ -194,15 +195,21 @@ class Room:
                 self.end_combat()
                 return
 
-            # Process each combatant's turn
+            # Calculate initiative for each combatant
+            initiative_order = []
             for combatant in active_combatants:
+                initiative = combatant._calculate_combat_initiative()
+                initiative_order.append((combatant, initiative))
+                print(f"[DEBUG advance_combat_round] {combatant.name} (ID: {combatant.id}) initiative: {initiative}")
+
+            # Sort combatants by initiative (highest first)
+            initiative_order.sort(key=lambda x: x[1], reverse=True)
+
+            # Process each combatant's turn in initiative order
+            for combatant, initiative in initiative_order:
                 print(f"[DEBUG advance_combat_round] Processing turn for {combatant.name} (ID: {combatant.id})") # Added debug statement
                 # Start of turn effects
                 combatant.update_effects_start_of_turn()
-
-                if not combatant.grudge_list:
-                    # print(f"[DEBUG advance_combat_round] {combatant.name} has no hostility and skips the turn.")
-                    continue
 
                 target = self.select_target(combatant)
                 if not target:
@@ -211,31 +218,21 @@ class Room:
 
                 # Skill usage decision (hardcoded for now)
                 skill_used = False
-                if combatant.monster_type == "dragon":  # Only dragon can use fireball
-                    if combatant.can_use_skill("fireball"):
-                        combatant.use_skill("fireball", target)
-                        skill_used = True
-                    elif combatant.can_use_skill("fire_breath"):
-                        combatant.use_skill("fire_breath", target)
+                if combatant.monster_type != "player":
+                    skill_name = combatant.select_ai_skill(target)
+                    if skill_name:
+                        combatant.use_skill(skill_name, target)
                         skill_used = True
 
-                elif combatant.monster_type == "player":  # Only player can use slash
+                elif combatant.monster_type == "player":
                     if combatant.can_use_skill("slash"):
                         combatant.use_skill("slash", target)
                         skill_used = True
                     elif combatant.can_use_skill("double_slash"):
                         combatant.use_skill("double_slash", target)
                         skill_used = True
-                        
-                elif combatant.monster_type == "companion":  # Only companion can use bite
-                    if combatant.can_use_skill("bite"):
-                        combatant.use_skill("bite", target)
-                        skill_used = True
-                    elif combatant.can_use_skill("double_bite"):
-                        combatant.use_skill("double_bite", target)
-                        skill_used = True
-                    elif combatant.can_use_skill("poison_bite"):
-                        combatant.use_skill("poison_bite", target)
+                    elif combatant.can_use_skill("attack"):
+                        combatant.use_skill("attack", target)
                         skill_used = True
 
                 if not skill_used:
@@ -244,11 +241,10 @@ class Room:
                     if combatant.can_use_skill("attack"):
                         combatant.use_skill("attack", target)
                     else:
-                        print(f"[DEBUG advance_combat_round] {combatant.name} (ID: {combatant.id}) does not have the attack skill.") # Added debug statement
-
+                        print(f"[DEBUG advance_combat_round] {combatant.name} (ID: {combatant.id}) does not have the attack skill.")
 
                 # End of turn effects
-                print(f"[DEBUG advance_combat_round] Updating end of turn effects for {combatant.name} (ID: {combatant.id})") # Added debug statement
+                print(f"[DEBUG advance_combat_round] Updating end of turn effects for {combatant.name} (ID: {combatant.id})")
                 combatant.update_effects_end_of_turn()
 
                 # Remove defeated combatants from grudges
@@ -259,6 +255,7 @@ class Room:
             # Check victory conditions
             if self.check_victory():
                 self.end_combat()
+
 
     def add_combatant(self, combatant):
         if combatant in self.combatants:

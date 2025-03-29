@@ -41,8 +41,7 @@ class PlayerActionManager(): # Changed
             for combatant in current_room.combatants:
                 if combatant.id != self.player.id:
                     print(f"  - {combatant.name} (ID: {combatant.id})")
-                    print(f"    {combatant.describe_skills()}") # Show skills
-                    print(f"    {combatant.describe_stats()}") # Show stats
+                    print(f"    {combatant.describe_stats()}")
         else:
             print("There are no combatants in the room.")
 

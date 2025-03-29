@@ -16,6 +16,8 @@ class Combatant:
             "offensive_melee": {},
             "passive_defense": {},
             "passive_offense": {},
+            "general": {},
+            "restoration_magic": {},
             "effects": {}
         }
         self.effects = []
@@ -92,6 +94,65 @@ class Combatant:
         
         return instance
 
+    def select_ai_skill(self, target):
+        """
+        Selects a skill for the AI to use based on its health, skills, and aggression.
+
+        Args:
+            target: The target of the skill.
+
+        Returns:
+            The name of the skill to use (string), or None if no skill is chosen.
+        """
+        import random
+
+        # Determine the needed skill category
+        needed_category = None
+        if self.stats["health"] < self.base_stats["health"] * 0.6:
+            needed_category = "restoration_magic"
+
+        # If no specific category is needed, default to an offensive category
+        if needed_category is None:
+            if self.monster_type in ["dragon", "goblin", "wolf"]:
+                needed_category = "offensive_melee"
+            elif self.monster_type == "companion":
+                needed_category = "offensive_melee"
+
+        # If there is a needed category, try to use a skill from it
+        if needed_category:
+            available_skills_in_category = [
+                skill_name
+                for skill_name in self.skills.get(needed_category, {})
+                if self.can_use_skill(skill_name)
+            ]
+            if available_skills_in_category:
+                return random.choice(available_skills_in_category)
+
+        # If no skill was chosen, return None
+        return None
+
+    def level_up_skill(self, skill_name):
+        """Increases the level of a specific skill."""
+        skill_data = None
+        skill_category = None
+        for category in self.skills:
+            if skill_name in self.skills[category]:
+                skill_data = self.skills[category][skill_name]
+                skill_category = category
+                break
+
+        if skill_data is None:
+            print(f"{self.name} does not have the skill {skill_name}.")
+            return False
+
+        if "level" not in skill_data:
+            print(f"Skill {skill_name} does not have a level attribute.")
+            return False
+
+        skill_data["level"] += 1
+        print(f"{self.name}'s skill {skill_name} has leveled up to level {skill_data['level']}!")
+        return True
+
     def _calculate_stats(self):
         """Calculates the combatant's stats based on base stats, level, and scaling rules."""
         stats = {
@@ -131,7 +192,7 @@ class Combatant:
         return stats
 
     def describe_stats(self):
-        """Returns a string describing the combatant's stats."""
+        """Returns a string describing the combatant's stats and skills."""
         stats_descriptions = [
             f"- health: {self.stats['health']}",
             f"- attack: {self.stats['attack']}",
@@ -145,7 +206,23 @@ class Combatant:
             f"- spell_points: {self.stats['spell_points']}"
         ]
         print(f"[DEBUG describe_stats] {self.name} stats: {self.stats}")
-        return f"{self.name}'s stats:\n" + "\n".join(stats_descriptions)
+
+        # Describe skills
+        skill_descriptions = []
+        for category, skills in self.skills.items():
+            if skills:  # Only add category if it has skills
+                skill_descriptions.append(f"  {category.replace('_', ' ').title()}:")
+                for skill_name, skill_data in skills.items():
+                    skill_level = skill_data.get("level", 1)  # Get the skill's level, default to 1
+                    skill_descriptions.append(f"    - {skill_name} (Level {skill_level}): {skill_data.get('description', 'No description available')}")
+
+        return (
+            f"{self.name}'s stats:\n"
+            + "\n".join(stats_descriptions)
+            + "\n\n"
+            + f"{self.name}'s Skills:\n"
+            + "\n".join(skill_descriptions)
+        )
 
     def is_alive(self):
             return self.stats["health"] > 0
@@ -156,82 +233,151 @@ class Combatant:
             # print(f"[DEBUG] {self.name} adds {attacker_id} to grudge list")
 
     # Skills
-    def add_skill(self, skill_category, skill_name, skill_data):
+    def add_skill(self, skill_category, skill_name, skill_data, initial_level=1):
         """Adds a skill to the combatant's repertoire under a specific category."""
         if skill_category not in self.skills:
             raise ValueError(f"Invalid skill category: {skill_category}")
-        self.skills[skill_category][skill_name] = skill_data
+        
+        # Add the initial_level to the skill data
+        skill_data_with_level = skill_data.copy()
+        skill_data_with_level["level"] = initial_level
+        skill_data_with_level["current_cooldown"] = 0
+        if "cooldown" in skill_data:
+            skill_data_with_level["cooldown"] = skill_data["cooldown"]
+        
+        self.skills[skill_category][skill_name] = skill_data_with_level
 
-    def add_passive_skill(self, skill_category, skill_name, skill_data):
+    def add_passive_skill(self, skill_category, skill_name, skill_data, initial_level=1):
         """Adds a passive skill to the combatant's repertoire under a specific category."""
         if skill_category not in self.skills:
             raise ValueError(f"Invalid skill category: {skill_category}")
-        self.skills[skill_category][skill_name] = skill_data
+        
+        # Add the initial_level to the skill data
+        skill_data_with_level = skill_data.copy()
+        skill_data_with_level["level"] = initial_level
+        
+        self.skills[skill_category][skill_name] = skill_data_with_level
 
     def can_use_skill(self, skill_name):
         """Checks if a skill is available for use."""
         # Check if the skill exists in any category
         for category in self.skills:
             if skill_name in self.skills[category]:
-                return True
+                skill_data = self.skills[category][skill_name]
+                return skill_data["current_cooldown"] == 0
         return False
 
     def use_skill(self, skill_name, target):
         """Uses a skill on a target."""
         # Find the skill in any category
         skill_data = None
-        skill_category = None
         for category in self.skills:
             if skill_name in self.skills[category]:
                 skill_data = self.skills[category][skill_name]
-                skill_category = category
                 break
 
         if skill_data is None:
             print(f"{self.name} does not have the skill {skill_name}.")
             return False
 
+        if skill_data["current_cooldown"] > 0:
+            print(f"{self.name} cannot use {skill_name} because it's on cooldown.")
+            return False
+
         print(f"{self.name} uses {skill_name} on {target.name}!")
 
-        # Apply skill effects (this is a basic example)
-        if "base_damage" in skill_data:
-            damage = self._calculate_skill_damage(skill_data)
+        damage = self._calculate_skill_damage(skill_data)
+        if damage > 0:
             print(f"[DEBUG] {self.name} (ID: {self.id}) is using {skill_name} on {target.name} (ID: {target.id})")
             print(f"[DEBUG] {skill_name} base damage: {skill_data.get('base_damage', 0)}")
-            if skill_data.get("scaling"):
-                print(f"[DEBUG] {skill_name} scaling stat: {skill_data.get('scaling')}, scaling value: {self.stats.get(skill_data.get('scaling'))}")
+            if skill_data.get("stat_scaling"):
+                print(f"[DEBUG] {skill_name} scaling stat: {skill_data.get('stat_scaling')}, scaling value: {self.stats.get(skill_data.get('stat_scaling'))}")
+            if skill_data.get("flat_stat_scaling"):
+                print(f"[DEBUG] {skill_name} flat scaling stat: {skill_data.get('flat_stat_scaling')}, scaling value: {self.stats.get(skill_data.get('flat_stat_scaling'))}")
             print(f"[DEBUG] {skill_name} calculated damage: {damage}")
             target.take_damage(damage)
-        if "heal" in skill_data:
-            heal = skill_data["heal"]
-            print(f"{self.name} heals for {heal} health!")
-            self.stats["health"] += heal
-        if "cost" in skill_data:
-            self.current_mana -= skill_data["cost"]
         if "effects" in skill_data:
             for effect_name in skill_data["effects"]:
                 self._apply_effect(effect_name, target)
+
+        if "cooldown" in skill_data:
+            skill_data["current_cooldown"] = skill_data["cooldown"]
 
         return True
 
     def _calculate_skill_damage(self, skill_data):
         """Calculates the damage of a skill based on its scaling."""
         base_damage = skill_data.get("base_damage", 0)
-        scaling_stat = skill_data.get("scaling")
+        stat_scaling = skill_data.get("stat_scaling")
+        level_scaling_factor = skill_data.get("level_scaling_factor", 0)
+        skill_level = skill_data.get("level", 1)
+        flat_stat_scaling = skill_data.get("flat_stat_scaling")
+        flat_scaling_value = skill_data.get("flat_scaling_value", 0)
+        combined_stat_scaling = skill_data.get("combined_stat_scaling")
 
-        if scaling_stat:
-            # Check if the scaling stat exists in the combatant's stats
-            if scaling_stat in self.stats:
-                scaling_value = self.stats[scaling_stat]
-                # Apply scaling formula
-                damage = int(base_damage * (1 + (scaling_value / 10)))
+        damage = 0
+
+        if combined_stat_scaling:
+            combined_scaling_total = 0
+            for stat, weight in combined_stat_scaling:
+                if stat in self.stats:
+                    combined_scaling_total += self.stats[stat] * weight
+                elif stat == "level":
+                    combined_scaling_total += skill_level * weight
+                else:
+                    print(f"Warning: Combined scaling stat '{stat}' not found in combatant's stats.")
+            damage = int(combined_scaling_total * (1 + (self.level * level_scaling_factor)) * (1 + (skill_level / 10)))
+        elif flat_stat_scaling:
+            if flat_stat_scaling in self.stats:
+                flat_scaling_stat_value = self.stats[flat_stat_scaling]
+                damage = int(flat_scaling_stat_value * flat_scaling_value)
             else:
-                print(f"Warning: Scaling stat '{scaling_stat}' not found in combatant's stats.")
+                print(f"Warning: Flat scaling stat '{flat_stat_scaling}' not found in combatant's stats.")
+                damage = 0
+        elif stat_scaling:
+            if stat_scaling in self.stats:
+                scaling_value = self.stats[stat_scaling]
+                # Apply scaling formula
+                damage = int(base_damage * (1 + (scaling_value / 10)) * (1 + (self.level * level_scaling_factor)) * (1 + (skill_level / 10)))
+            else:
+                print(f"Warning: Scaling stat '{stat_scaling}' not found in combatant's stats.")
                 damage = base_damage
         else:
             damage = base_damage
 
         return damage
+
+    def _calculate_combat_initiative(self):
+        """Calculates the combat initiative for this combatant."""
+        skill_data = None
+        for category in self.skills:
+            if "combat_initiative" in self.skills[category]:
+                skill_data = self.skills[category]["combat_initiative"]
+                break
+
+        if skill_data is None:
+            print(f"{self.name} does not have the skill combat_initiative.")
+            return 0
+
+        skill_level = skill_data.get("level", 1)
+
+        # Calculate the sum of all relevant stats
+        total_stats = 0
+        for stat_name, stat_value in self.stats.items():
+            if stat_name in ["strength", "dexterity", "intelligence", "wisdom", "willpower", "constitution"]:
+                total_stats += stat_value
+
+        # Calculate initiative based on the total stats and skill level
+        initiative = int(total_stats * (1 + (skill_level / 10)))
+
+        # Add randomness based on skill level
+        import random
+        roll1 = random.randint(1, skill_level * 2)  # Roll 1
+        roll2 = random.randint(1, skill_level * 2)  # Roll 2
+        higher_roll = max(roll1, roll2)
+        initiative += higher_roll
+
+        return initiative
 
     def _apply_effect(self, effect_name, target):
         """Applies an effect to the target."""
@@ -283,6 +429,11 @@ class Combatant:
         """Handles effects at the start of the turn."""
         for effect in self.effects:
             effect.turn_start(self)
+        # Decrement skill cooldowns
+        for category in self.skills.values():
+            for skill_data in category.values():
+                if skill_data["current_cooldown"] > 0:
+                    skill_data["current_cooldown"] -= 1
 
     def update_effects_end_of_turn(self):
         """Handles effects at the end of the turn."""
