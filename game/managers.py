@@ -72,9 +72,9 @@ class RoomManager:
         # Serialize active rooms
         active_rooms_data = {room_id: room.to_dict() for room_id, room in self.active_room_lookup.items()}
         return {
-            "game_rooms": [room.to_dict() for room in self.game_rooms],  # Serialize all rooms
-            "active_room_lookup": active_rooms_data,  # Serialize active rooms
-         }
+            "game_rooms": [room.to_dict() for room in self.game_rooms],
+            "active_room_ids": list(self.active_room_lookup.keys()),  # Save only room IDs
+        }
 
     @classmethod
     def from_dict(cls, data):
@@ -86,12 +86,14 @@ class RoomManager:
             # Recreate the room_lookup dictionary
             for room in room_manager.game_rooms:
                 room_manager.room_lookup[room.room_id] = room
-            
-            # Recreate the active_room_lookup dictionary
-            if "active_room_lookup" in data:
-                for room_id, room_data in data["active_room_lookup"].items():
-                    room = Room.from_dict(room_data)
-                    room_manager.active_room_lookup[room_id] = room
+
+            # Recreate the active_room_lookup dictionary from the saved IDs
+            if "active_room_ids" in data:
+                for room_id in data["active_room_ids"]:
+                    if room_id in room_manager.room_lookup:
+                        room_manager.active_room_lookup[room_id] = room_manager.room_lookup[room_id]
+                    else:
+                        print(f"[WARNING] Room with ID '{room_id}' not found during deserialization of active_room_lookup.")
         else:
             print("[WARNING] 'game_rooms' key missing in RoomManager data!")
         return room_manager
@@ -944,5 +946,3 @@ class SaveLoadManager:
                 print(f"[ERROR] An unexpected error occurred during loading: {e}")
                 raise  # Re-raise the exception to be handled elsewhere
 
-
-# class MonsterActionManager()

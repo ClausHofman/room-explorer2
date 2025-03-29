@@ -28,7 +28,6 @@ class Combatant:
         return {
             "id": self.id,
             "name": self.name,
-            "base_stats": self.base_stats,
             "stats": self.stats,
             "level": self.level,
             "hates_all": self.hates_all,
@@ -50,41 +49,64 @@ class Combatant:
     def from_dict(cls, data):
         # print(f"[DEBUG COMBATANT.PY] data in from_dict: {data}")
 
-        base_stats = { # Changed
-                    "health": data["base_stats"]["health"], # Changed
-                    "attack": data["base_stats"]["attack"], # Changed
-                    "defense": data["base_stats"]["defense"], # Changed
-                    "strength": data["base_stats"]["strength"], # Changed
-                    "intelligence": data["base_stats"]["intelligence"] # Changed
+        base_stats = {
+                    "health": data["stats"]["health"],
+                    "spell_points": data["stats"]["spell_points"],
+                    "attack": data["stats"]["attack"],
+                    "defense": data["stats"]["defense"],
+                    "strength": data["stats"]["strength"],
+                    "dexterity": data["stats"]["dexterity"],
+                    "intelligence": data["stats"]["intelligence"],
+                    "wisdom": data["stats"]["wisdom"],
+                    "willpower": data["stats"]["willpower"],
+                    "constitution": data["stats"]["constitution"],
+                    "level": data.get("level", 1),
+                    "health_per_level": data.get("health_per_level", 0),
+                    "spell_points_per_level": data.get("spell_points_per_level", 0),
+                    "attack_per_level": data.get("attack_per_level", 0),
+                    "defense_per_level": data.get("defense_per_level", 0),
+                    "health_per_constitution": data.get("health_per_constitution", 0),
+                    "damage_per_strength": data.get("damage_per_strength", 0),
+                    "spell_points_per_intelligence": data.get("spell_points_per_intelligence", 0),
+                    "defense_per_constitution": data.get("defense_per_constitution", 0)
                     }
+        print(f"[DEBUG from_dict base_stats] {data['name']} base_stats: {base_stats}")
         status_effects = data.get("status_effect", {"buffs": {}, "debuffs": {}}) # TODO: Check this
 
         instance = cls(
             combatant_id=data["id"],
             name=data["name"],
-            base_stats = base_stats, # Changed
+            base_stats = base_stats,
             level=data.get("level", 1),
             hates_all=data.get("hates_all", False),
             hates_player_and_companions=data.get("hates_player_and_companions", False),
             hates=data.get("hates", []),
             monster_type=data.get("monster_type", None),
         )
-        instance.grudge_list = data.get("grudge_list", [])  # Restore grudges
+        instance.grudge_list = data.get("grudge_list", [])
+        print(f"[DEBUG from_dict] {data['name']} base_stats: {base_stats}")
         instance.current_room = data.get("current_room", None)
         instance.stats = data.get("stats", instance.stats)
         instance.skills = data.get("skills", instance.skills)
         instance.grudge_list = data.get("grudge_list", instance.grudge_list)
+        
         return instance
 
     def _calculate_stats(self):
-        """Calculates the combatant's stats based on base stats and level."""
+        """Calculates the combatant's stats based on base stats, level, and scaling rules."""
         stats = {
             "health": self.base_stats["health"],
+            "spell_points": self.base_stats["spell_points"] if "spell_points" in self.base_stats else self.base_stats["intelligence"] + self.base_stats["wisdom"] + self.base_stats["willpower"],
             "attack": self.base_stats["attack"],
             "defense": self.base_stats["defense"],
             "strength": self.base_stats["strength"],
-            "intelligence": self.base_stats["intelligence"]
+            "dexterity": self.base_stats["dexterity"],
+            "wisdom": self.base_stats["wisdom"],
+            "intelligence": self.base_stats["intelligence"],
+            "willpower": self.base_stats["willpower"],
+            "constitution": self.base_stats["constitution"],
         }
+
         # Apply level-based scaling
         if "health_per_level" in self.base_stats:
             stats["health"] += self.base_stats["health_per_level"] * (self.level - 1)
@@ -92,17 +114,37 @@ class Combatant:
             stats["attack"] += self.base_stats["attack_per_level"] * (self.level - 1)
         if "defense_per_level" in self.base_stats:
             stats["defense"] += self.base_stats["defense_per_level"] * (self.level - 1)
+        if "spell_points_per_level" in self.base_stats:
+            stats["spell_points"] += self.base_stats["spell_points_per_level"] * (self.level - 1)
+
+        # Apply stat-based scaling
+        if "health_per_constitution" in self.base_stats:
+            stats["health"] += self.base_stats["health_per_constitution"] * self.base_stats["constitution"]
+        if "damage_per_strength" in self.base_stats:
+            stats["attack"] += self.base_stats["damage_per_strength"] * self.base_stats["strength"]
+        if "spell_points_per_intelligence" in self.base_stats:
+            stats["spell_points"] += self.base_stats["spell_points_per_intelligence"] * self.base_stats["intelligence"]
+        if "defense_per_constitution" in self.base_stats:
+            stats["defense"] += self.base_stats["defense_per_constitution"] * self.base_stats["constitution"]
+
+        print(f"[DEBUG _calculate_stats]   stats: {stats}")
         return stats
 
     def describe_stats(self):
         """Returns a string describing the combatant's stats."""
         stats_descriptions = [
-            f"- health: {self.stats['health']}",  # Show current health
+            f"- health: {self.stats['health']}",
             f"- attack: {self.stats['attack']}",
             f"- defense: {self.stats['defense']}",
             f"- strength: {self.stats['strength']}",
-            f"- intelligence: {self.stats['intelligence']}"
+            f"- dexterity: {self.stats['dexterity']}",
+            f"- intelligence: {self.stats['intelligence']}",
+            f"- wisdom: {self.stats['wisdom']}",
+            f"- willpower: {self.stats['willpower']}",
+            f"- constitution: {self.stats['constitution']}",
+            f"- spell_points: {self.stats['spell_points']}"
         ]
+        print(f"[DEBUG describe_stats] {self.name} stats: {self.stats}")
         return f"{self.name}'s stats:\n" + "\n".join(stats_descriptions)
 
     def is_alive(self):
@@ -289,12 +331,25 @@ class Player(Combatant):
     def from_dict(cls, data):
         # print(f"[DEBUG COMBATANT.PY] data in from_dict: {data}")
 
-        base_stats = { # Changed
-            "health": data["base_stats"]["health"], # Changed
-            "attack": data["base_stats"]["attack"], # Changed
-            "defense": data["base_stats"]["defense"], # Changed
-            "strength": data["base_stats"]["strength"], # Changed
-            "intelligence": data["base_stats"]["intelligence"] # Changed
+        base_stats = {
+            "health": data["stats"]["health"],
+            "attack": data["stats"]["attack"],
+            "defense": data["stats"]["defense"],
+            "strength": data["stats"]["strength"],
+            "dexterity": data["stats"]["dexterity"],
+            "intelligence": data["stats"]["intelligence"],
+            "wisdom": data["stats"]["wisdom"],
+            "willpower": data["stats"]["willpower"],
+            "constitution": data["stats"]["constitution"],
+            "level": data.get("level", 1),
+            "health_per_level": data.get("health_per_level", 0),
+            "spell_points_per_level": data.get("spell_points_per_level", 0),
+            "attack_per_level": data.get("attack_per_level", 0),
+            "defense_per_level": data.get("defense_per_level", 0),
+            "health_per_constitution": data.get("health_per_constitution", 0),
+            "damage_per_strength": data.get("damage_per_strength", 0),
+            "spell_points_per_intelligence": data.get("spell_points_per_intelligence", 0),
+            "defense_per_constitution": data.get("defense_per_constitution", 0)
         }
 
         # Extract and organize status effects properly
@@ -306,7 +361,7 @@ class Player(Combatant):
         player = cls(
             combatant_id=data["id"],
             name=data["name"],
-            base_stats=base_stats, # Changed
+            base_stats=base_stats,
             level=data.get("level", 1),
             hates_all=data.get("hates_all", False),
             hates_player_and_companions=data.get("hates_player_and_companions", False),
@@ -358,12 +413,25 @@ class Companion(Combatant):
     def from_dict(cls, data):
         # print(f"[DEBUG COMBATANT.PY] data in from_dict: {data}")
 
-        base_stats = { # Changed
-            "health": data["base_stats"]["health"], # Changed
-            "attack": data["base_stats"]["attack"], # Changed
-            "defense": data["base_stats"]["defense"], # Changed
-            "strength": data["base_stats"]["strength"], # Changed
-            "intelligence": data["base_stats"]["intelligence"] # Changed
+        base_stats = {
+            "health": data["stats"]["health"],
+            "attack": data["stats"]["attack"],
+            "defense": data["stats"]["defense"],
+            "strength": data["stats"]["strength"],
+            "dexterity": data["stats"]["dexterity"],
+            "intelligence": data["stats"]["intelligence"],
+            "wisdom": data["stats"]["wisdom"],
+            "willpower": data["stats"]["willpower"],
+            "constitution": data["stats"]["constitution"],
+            "level": data.get("level", 1),
+            "health_per_level": data.get("health_per_level", 0),
+            "spell_points_per_level": data.get("spell_points_per_level", 0),
+            "attack_per_level": data.get("attack_per_level", 0),
+            "defense_per_level": data.get("defense_per_level", 0),
+            "health_per_constitution": data.get("health_per_constitution", 0),
+            "damage_per_strength": data.get("damage_per_strength", 0),
+            "spell_points_per_intelligence": data.get("spell_points_per_intelligence", 0),
+            "defense_per_constitution": data.get("defense_per_constitution", 0)
         }
 
         # Extract and organize status effects properly
@@ -371,10 +439,11 @@ class Companion(Combatant):
             "status_effect": data.get("status_effect", {"buffs": {}, "debuffs": {}})
         }
 
+
         companion = cls(
             combatant_id=data["id"],
             name=data["name"],
-            base_stats=base_stats, # Changed
+            base_stats=base_stats,
             level=data.get("level", 1),
             hates_all=data.get("hates_all", False),
             hates_player_and_companions=data.get("hates_player_and_companions", False),
@@ -454,13 +523,27 @@ class Monster(Combatant):
     def from_dict(cls, data):
         # print(f"[DEBUG COMBATANT.PY] data in from_dict: {data}")
 
-        base_stats = { # Changed
-            "health": data["base_stats"]["health"], # Changed
-            "attack": data["base_stats"]["attack"], # Changed
-            "defense": data["base_stats"]["defense"], # Changed
-            "strength": data["base_stats"]["strength"], # Changed
-            "intelligence": data["base_stats"]["intelligence"] # Changed
+        base_stats = {
+            "health": data["stats"]["health"],
+            "attack": data["stats"]["attack"],
+            "defense": data["stats"]["defense"],
+            "strength": data["stats"]["strength"],
+            "dexterity": data["stats"]["dexterity"],
+            "intelligence": data["stats"]["intelligence"],
+            "wisdom": data["stats"]["wisdom"],
+            "willpower": data["stats"]["willpower"],
+            "constitution": data["stats"]["constitution"],
+            "level": data.get("level", 1),
+            "health_per_level": data.get("health_per_level", 0),
+            "spell_points_per_level": data.get("spell_points_per_level", 0),
+            "attack_per_level": data.get("attack_per_level", 0),
+            "defense_per_level": data.get("defense_per_level", 0),
+            "health_per_constitution": data.get("health_per_constitution", 0),
+            "damage_per_strength": data.get("damage_per_strength", 0),
+            "spell_points_per_intelligence": data.get("spell_points_per_intelligence", 0),
+            "defense_per_constitution": data.get("defense_per_constitution", 0)
         }
+
         
         # Extract and organize status effects properly
         status_data = {
@@ -470,7 +553,7 @@ class Monster(Combatant):
         monster = cls(
             combatant_id=data["id"],
             name=data["name"],
-            base_stats=base_stats, # Changed
+            base_stats=base_stats,
             level=data.get("level", 1),
             hates_all=data.get("hates_all", False),
             hates_player_and_companions=data.get("hates_player_and_companions", False),

@@ -239,12 +239,13 @@ class Room:
                         skill_used = True
 
                 if not skill_used:
-                    print(f"[DEBUG advance_combat_round] {combatant.name} (ID: {combatant.id}) is using a basic attack.") # Added debug statement
-                    # Attack logic
-                    damage = max(combatant.stats["attack"] - target.stats["defense"], 1)
-                    if self.player_in_room:
-                        print(f"{combatant.name} attacks {target.name} for {damage} damage!")
-                    target.take_damage(damage)
+                    print(f"DEBUG A skill was not used, using default attack for {combatant.name}")
+                    # Use the default attack skill if no other skill was used
+                    if combatant.can_use_skill("attack"):
+                        combatant.use_skill("attack", target)
+                    else:
+                        print(f"[DEBUG advance_combat_round] {combatant.name} (ID: {combatant.id}) does not have the attack skill.") # Added debug statement
+
 
                 # End of turn effects
                 print(f"[DEBUG advance_combat_round] Updating end of turn effects for {combatant.name} (ID: {combatant.id})") # Added debug statement

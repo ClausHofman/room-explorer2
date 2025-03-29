@@ -39,29 +39,25 @@ def initialize_game():
         level=5,
         selected_traits=selected_traits_for_dragon
     )
-    
-    # dragon1.add_skill("fireball", {"damage": 15, "description": "Hurls a ball of fire at the target."}) # Added fireball skill
-    # dragon1.add_skill("fire_breath", {"damage": 10, "description": "Breathes fire at the target."}) # Added fire_breath skill
+    print(dragon1.describe_stats())
 
     player = create_player(
         creature_type="player",
         player_data=combatant_data.player_data,
         creature_traits=combatant_data.creature_traits_data,
         status_data=combatant_data.creature_status_data,
+        level=100
     )
-
-    # player.add_skill("slash", {"damage": 10, "description": "A basic melee attack."})  # Added slash skill
-    # player.add_skill("double_slash", {"damage": 15, "description": "A more powerful melee attack."})  # Added double_slash skill
+    print(player.describe_stats())
 
     companion1 = create_companion(
         creature_type="companion",
         companion_data=combatant_data.companion_data,
         creature_traits=combatant_data.creature_traits_data,
-        status_data=combatant_data.creature_status_data
+        status_data=combatant_data.creature_status_data,
+        level=100
     )
-
-    # companion1.add_skill("bite", {"damage": 5, "description": "A basic bite attack."})  # Added bite skill
-    # companion1.add_skill("double_bite", {"damage": 10, "description": "A more powerful bite attack."})  # Added double_bite skill
+    print(companion1.describe_stats())
 
     turn_manager = TurnManager(stop_event)
     room_manager = RoomManager(player=player)
@@ -71,7 +67,9 @@ def initialize_game():
     player_action_manager = PlayerActionManager(room_manager=room_manager, player=player)
 
 
-    
+    print(f"[DEBUG initialize_game] Dragon base_stats: {dragon1.base_stats}")
+    print(f"[DEBUG initialize_game] Player base_stats: {player.base_stats}")
+    print(f"[DEBUG initialize_game] Companion base_stats: {companion1.base_stats}")
 
     ### # Example Usage
     # room_manager = RoomManager()  # Assuming RoomManager is defined elsewhere
@@ -203,7 +201,7 @@ def initialize_game():
 
 
 
-def create_companion(creature_type, companion_data, creature_traits, status_data, selected_traits=None):
+def create_companion(creature_type, companion_data, creature_traits, status_data, level, selected_traits=None):
     from game.combatants import Companion
     """
     Creates a Player object by extracting the data for the given creature type.
@@ -227,9 +225,25 @@ def create_companion(creature_type, companion_data, creature_traits, status_data
         "attack": companion_info["attack"],
         "defense": companion_info["defense"],
         "strength": companion_info["strength"],
-        "intelligence": companion_info["intelligence"]
+        "dexterity": companion_info["dexterity"],
+        "intelligence": companion_info["intelligence"],
+        "wisdom": companion_info["wisdom"],
+        "willpower": companion_info["willpower"],
+        "constitution": companion_info["constitution"],
+        "health_per_level": companion_info.get("health_per_level", 0),
+        "attack_per_level": companion_info.get("attack_per_level", 0),
+        "defense_per_level": companion_info.get("defense_per_level", 0),
+        "health_per_constitution": companion_info.get("health_per_constitution", 0),
+        "damage_per_strength": companion_info.get("damage_per_strength", 0),
+        "spell_points_per_intelligence": companion_info.get("spell_points_per_intelligence", 0),
+        "spell_points_per_level": companion_info.get("spell_points_per_level", 0),
+        "defense_per_constitution": companion_info.get("defense_per_constitution", 0),
+        "skills": companion_info.get("skills", [])
+        
     }
-    
+
+    print(f"[DEBUG create_companion] {creature_type} base_stats: {base_stats}")
+
     # Generate a unique combatant ID
     combatant_id = f"{creature_type}_{uuid.uuid4().hex[:6]}"
     
@@ -238,7 +252,7 @@ def create_companion(creature_type, companion_data, creature_traits, status_data
         combatant_id=combatant_id,
         name=companion_info["name"],
         base_stats=base_stats,
-        level=companion_info.get("level", 1),
+        level=level,
         hates_all=companion_info.get("hates_all", False),
         hates_player_and_companions=companion_info.get("hates_player_and_companions", False),
         hates=companion_info.get("hates", []),
@@ -248,12 +262,16 @@ def create_companion(creature_type, companion_data, creature_traits, status_data
         status_data=status_data,
         selected_traits=selected_traits
     )
-    # companion.add_skill("offensive_melee", "bite", available_skills["offensive_melee"]["bite"])
-    # companion.add_skill("offensive_melee", "double_bite", available_skills["offensive_melee"]["double_bite"])
-    companion.add_skill("offensive_melee", "poison_bite", available_skills["offensive_melee"]["poison_bite"])
+    from game.available_skills import available_skills
+
+    for skill_category, skill_names in companion_info.get("skills", {}).items():
+        for skill_name in skill_names:
+            if skill_name in available_skills.get(skill_category, {}):
+                companion.add_skill(skill_category, skill_name, available_skills[skill_category][skill_name])
     return companion
+
     
-def create_player(creature_type, player_data, creature_traits, status_data, selected_traits=None):
+def create_player(creature_type, player_data, creature_traits, status_data, level, selected_traits=None):
     from game.combatants import Player
     """
     Creates a Player object by extracting the data for the given creature type.
@@ -277,10 +295,24 @@ def create_player(creature_type, player_data, creature_traits, status_data, sele
         "attack": player_info["attack"],
         "defense": player_info["defense"],
         "strength": player_info["strength"],
-        "intelligence": player_info["intelligence"]
+        "dexterity": player_info["dexterity"],
+        "intelligence": player_info["intelligence"],
+        "wisdom": player_info["wisdom"],
+        "willpower": player_info["willpower"],
+        "constitution": player_info["constitution"],
+        "health_per_level": player_info.get("health_per_level", 0),
+        "attack_per_level": player_info.get("attack_per_level", 0),
+        "defense_per_level": player_info.get("defense_per_level", 0),
+        "health_per_constitution": player_info.get("health_per_constitution", 0),
+        "damage_per_strength": player_info.get("damage_per_strength", 0),
+        "spell_points_per_intelligence": player_info.get("spell_points_per_intelligence", 0),
+        "spell_points_per_level": player_info.get("spell_points_per_level", 0),
+        "defense_per_constitution": player_info.get("defense_per_constitution", 0),
+        "skills": player_info.get("skills", [])
     }
 
-    
+    print(f"[DEBUG create_player] {creature_type} base_stats: {base_stats}")
+
     # Generate a unique combatant ID
     combatant_id = f"{creature_type}_{uuid.uuid4().hex[:6]}"
     
@@ -289,7 +321,7 @@ def create_player(creature_type, player_data, creature_traits, status_data, sele
         combatant_id=combatant_id,
         name=player_info["name"],
         base_stats=base_stats,
-        level=player_info.get("level", 1),
+        level=level,
         hates_all=player_info.get("hates_all", False),
         hates_player_and_companions=player_info.get("hates_player_and_companions", False),
         hates=player_info.get("hates", []),
@@ -299,8 +331,12 @@ def create_player(creature_type, player_data, creature_traits, status_data, sele
         status_data=status_data,
         selected_traits=selected_traits
     )
-    player.add_skill("offensive_melee", "slash", available_skills["offensive_melee"]["slash"])
-    player.add_skill("offensive_melee", "double_slash", available_skills["offensive_melee"]["double_slash"])
+    from game.available_skills import available_skills
+
+    for skill_category, skill_names in player_info.get("skills", {}).items():
+        for skill_name in skill_names:
+            if skill_name in available_skills.get(skill_category, {}):
+                player.add_skill(skill_category, skill_name, available_skills[skill_category][skill_name])
     return player
 
 def create_creature(creature_type, creature_data, creature_traits, status_data, level, selected_traits=None):
@@ -317,15 +353,26 @@ def create_creature(creature_type, creature_data, creature_traits, status_data, 
         "attack": creature_info["attack"],
         "defense": creature_info["defense"],
         "strength": creature_info["strength"],
+        "dexterity": creature_info["dexterity"],
         "intelligence": creature_info["intelligence"],
+        "wisdom": creature_info["wisdom"],
+        "willpower": creature_info["willpower"],
+        "constitution": creature_info["constitution"],
         "health_per_level": creature_info.get("health_per_level", 0),
         "attack_per_level": creature_info.get("attack_per_level", 0),
-        "defense_per_level": creature_info.get("defense_per_level", 0)
+        "defense_per_level": creature_info.get("defense_per_level", 0),
+        "health_per_constitution": creature_info.get("health_per_constitution", 0),
+        "damage_per_strength": creature_info.get("damage_per_strength", 0),
+        "spell_points_per_intelligence": creature_info.get("spell_points_per_intelligence", 0),
+        "spell_points_per_level": creature_info.get("spell_points_per_level", 0),
+        "defense_per_constitution": creature_info.get("defense_per_constitution", 0),
+        "skills": creature_info.get("skills", [])
     }
     
+    print(f"[DEBUG create_creature] {creature_type} base_stats: {base_stats}")
+
     combatant_id = f"{creature_type}_{uuid.uuid4().hex[:6]}"
     
-
     monster = Monster(
         combatant_id=combatant_id,
         name=creature_info["name"],
@@ -342,11 +389,14 @@ def create_creature(creature_type, creature_data, creature_traits, status_data, 
     )
 
     if creature_type == "dragon":
-        monster.add_skill("offensive_melee", "fireball", available_skills["offensive_melee"]["fireball"])
-        monster.add_skill("offensive_melee", "fire_breath", available_skills["offensive_melee"]["fire_breath"])
-        monster.add_passive_skill("passive_defense", "iron_skin", available_skills["passive_defense"]["iron_skin"])
+        from game.available_skills import available_skills
 
-    return monster  # Level is now stored in the monster itself
+        for skill_category, skill_names in creature_info.get("skills", {}).items():
+            for skill_name in skill_names:
+                if skill_name in available_skills.get(skill_category, {}):
+                    monster.add_skill(skill_category, skill_name, available_skills[skill_category][skill_name])
+
+    return monster  
 
 
 from prompt_toolkit import PromptSession

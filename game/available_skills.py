@@ -54,7 +54,11 @@ available_skills = {
         }
     },
     "passive_offense": {
-        # ... (add passive offense skills here later) ...
+        "attack": {
+            "base_damage": 0,
+            "scaling": "strength",
+            "description": "A basic attack."
+        }
     },
     "effects": {
         "poison": {
