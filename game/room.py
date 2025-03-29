@@ -6,7 +6,7 @@ import random
 class Room:
     room_count = 0
 
-    def __init__(self, room_name="Default room name", room_id=None, always_track_turns=False, in_combat=False, combat_rounds=0, room_type="generic_random"):
+    def __init__(self, room_name="Default room name", room_id=None, always_track_turns=False, in_combat=False, combat_rounds=0, room_type="generic_random", combat_start_turn=0):
         Room.room_count += 1  # Increment the count unconditionally
         self.room_name = room_name
         if room_id is None:
@@ -15,7 +15,7 @@ class Room:
             self.room_id = room_id  # Use the provided room ID
         self.in_combat = in_combat
         self.always_track_turns = always_track_turns
-        self.combat_start_turn = None
+        self.combat_start_turn = combat_start_turn
         self.combat_rounds = combat_rounds
         self.combatants = []  # Holds Player, Companion, and Monster objects
         self.entities = []  # Not in use, could be used for other objects in the future
@@ -35,6 +35,7 @@ class Room:
             "room_name": self.room_name,
             "room_id": self.room_id,
             "in_combat": self.in_combat,
+            "combat_start_turn": self.combat_start_turn,
             "combat_rounds": self.combat_rounds,
             "always_track_turns": self.always_track_turns,
             "combatants": [
@@ -64,8 +65,9 @@ class Room:
             room_id=room_id,
             always_track_turns=room_data.get("always_track_turns", False),
             in_combat=room_data.get("in_combat", False),
+            combat_start_turn=room_data.get("combat_start_turn", 0),
             combat_rounds=room_data.get("combat_rounds", 0),
-            room_type=room_data.get("room_type", "generic")
+            room_type=room_data.get("room_type", "generic_random")
         )
         
         print(f"[DEBUG FROM_DICT] Reconstructed Room: {reconstructed_room.room_id}, "
@@ -172,6 +174,7 @@ class Room:
             self.advance_combat_round(current_turn)
 
     def advance_combat_round(self, current_turn):
+        print(f"[DEBUG advance_combat_round] Starting advance_combat_round in Room {self.room_id}!") # Added debug statement
         if not self.in_combat:
             return  # Skip if not in combat
 
@@ -193,6 +196,10 @@ class Room:
 
             # Process each combatant's turn
             for combatant in active_combatants:
+                print(f"[DEBUG advance_combat_round] Processing turn for {combatant.name} (ID: {combatant.id})") # Added debug statement
+                # Start of turn effects
+                combatant.update_effects_start_of_turn()
+
                 if not combatant.grudge_list:
                     # print(f"[DEBUG advance_combat_round] {combatant.name} has no hostility and skips the turn.")
                     continue
@@ -202,15 +209,51 @@ class Room:
                     # print(f"[DEBUG advance_combat_round] {combatant.name} could not find a valid target.")
                     continue
 
-                # Attack logic
-                damage = max(combatant.stats["attack"] - target.stats["defense"], 1)
-                if self.player_in_room:
-                    print(f"{combatant.name} attacks {target.name} for {damage} damage!")
-                target.take_damage(damage)
+                # Skill usage decision (hardcoded for now)
+                skill_used = False
+                if combatant.monster_type == "dragon":  # Only dragon can use fireball
+                    if combatant.can_use_skill("fireball"):
+                        combatant.use_skill("fireball", target)
+                        skill_used = True
+                    elif combatant.can_use_skill("fire_breath"):
+                        combatant.use_skill("fire_breath", target)
+                        skill_used = True
 
-		        # Remove defeated combatants from grudges
-                if not target.is_alive():
-                    self.remove_defeated_grudges(target.id)
+                elif combatant.monster_type == "player":  # Only player can use slash
+                    if combatant.can_use_skill("slash"):
+                        combatant.use_skill("slash", target)
+                        skill_used = True
+                    elif combatant.can_use_skill("double_slash"):
+                        combatant.use_skill("double_slash", target)
+                        skill_used = True
+                        
+                elif combatant.monster_type == "companion":  # Only companion can use bite
+                    if combatant.can_use_skill("bite"):
+                        combatant.use_skill("bite", target)
+                        skill_used = True
+                    elif combatant.can_use_skill("double_bite"):
+                        combatant.use_skill("double_bite", target)
+                        skill_used = True
+                    elif combatant.can_use_skill("poison_bite"):
+                        combatant.use_skill("poison_bite", target)
+                        skill_used = True
+
+                if not skill_used:
+                    print(f"[DEBUG advance_combat_round] {combatant.name} (ID: {combatant.id}) is using a basic attack.") # Added debug statement
+                    # Attack logic
+                    damage = max(combatant.stats["attack"] - target.stats["defense"], 1)
+                    if self.player_in_room:
+                        print(f"{combatant.name} attacks {target.name} for {damage} damage!")
+                    target.take_damage(damage)
+
+                # End of turn effects
+                print(f"[DEBUG advance_combat_round] Updating end of turn effects for {combatant.name} (ID: {combatant.id})") # Added debug statement
+                combatant.update_effects_end_of_turn()
+
+                # Remove defeated combatants from grudges
+                for target in self.combatants:
+                    if not target.is_alive():
+                        self.remove_defeated_grudges(target.id)
 
             # Check victory conditions
             if self.check_victory():
@@ -277,13 +320,16 @@ class Room:
         # Debugging: Print combatants and their grudges
         temp = []
         for c in self.combatants:
+            # TODO: this might need some fixing
             # print(f"[DEBUG detect_hostility] {c.name} grudges: {c.grudge_list}")
             temp += c.grudge_list
+            if len(temp) > 0:
+                break
         if temp:
             self.start_combat(0)
 
 
-    def has_hostility(self):
+    def has_hostility(self): # TODO: this might need some looking into
         print("[DEBUG has_hostility] Checking for hostility among combatants...")
         for combatant in self.combatants:
             # Skip dead combatants

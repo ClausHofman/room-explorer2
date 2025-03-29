@@ -4,7 +4,7 @@ from prompt_toolkit.formatted_text import FormattedText
 from game.shared_resources import room_type_data, game_style
 import random
 
-class PlayerActionManager():
+class PlayerActionManager(): # Changed
     def __init__(self, room_manager=None, player=None):
         self.room_manager = room_manager
         self.player = player
@@ -41,6 +41,8 @@ class PlayerActionManager():
             for combatant in current_room.combatants:
                 if combatant.id != self.player.id:
                     print(f"  - {combatant.name} (ID: {combatant.id})")
+                    print(f"    {combatant.describe_skills()}") # Show skills
+                    print(f"    {combatant.describe_stats()}") # Show stats
         else:
             print("There are no combatants in the room.")
 

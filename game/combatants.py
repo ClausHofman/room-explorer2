@@ -1,9 +1,10 @@
+from game.effects import Effect
 
 class Combatant:
-    def __init__(self, combatant_id, name, stats, level, hates_all=False, hates_player_and_companions=False, hates=None, monster_type=None):
+    def __init__(self, combatant_id, name, base_stats, level, hates_all=False, hates_player_and_companions=False, hates=None, monster_type=None):
         self.id = combatant_id
         self.name = name
-        self.stats = stats
+        self.base_stats = base_stats
         self.level = level
         self.hates_all = hates_all
         self.hates_player_and_companions = hates_player_and_companions
@@ -11,28 +12,23 @@ class Combatant:
         self.monster_type = monster_type
         self.grudge_list = []
         self.current_room = None
+        self.skills = {
+            "offensive_melee": {},
+            "passive_defense": {},
+            "passive_offense": {},
+            "effects": {}
+        }
+        self.effects = []
+        self.stats = self._calculate_stats()
+        
 
-    def is_alive(self):
-            return self.stats["health"] > 0
-
-    def take_damage(self, damage):
-        self.stats["health"] -= damage
-        if self.stats["health"] <= 0:
-            print(f"[DEBUG] {self.name} has been defeated!")
-            self.grudge_list.clear()  # Clear grudges when defeated
-            print(f"[DEBUG] Cleared grudge list for {self.name} (ID: {self.id})")
-        return self.stats["health"] > 0
-
-    def add_to_grudge_list(self, attacker_id):
-        if attacker_id not in self.grudge_list:
-            self.grudge_list.append(attacker_id)
-            # print(f"[DEBUG] {self.name} adds {attacker_id} to grudge list")
 
     # Serialization method
     def to_dict(self):
         return {
             "id": self.id,
             "name": self.name,
+            "base_stats": self.base_stats,
             "stats": self.stats,
             "level": self.level,
             "hates_all": self.hates_all,
@@ -41,6 +37,8 @@ class Combatant:
             "monster_type": self.monster_type,
             "grudge_list": self.grudge_list,
             "current_room": self.current_room,
+            "skills": self.skills,
+            "grudge_list": self.grudge_list,
             "status_effect": {
                 "buffs": self.combatant_manager.buffs if self.combatant_manager and isinstance(self.combatant_manager.buffs, dict) else {},
                 "debuffs": self.combatant_manager.debuffs if self.combatant_manager and isinstance(self.combatant_manager.debuffs, dict) else {}
@@ -52,16 +50,19 @@ class Combatant:
     def from_dict(cls, data):
         # print(f"[DEBUG COMBATANT.PY] data in from_dict: {data}")
 
-        stats = {
-                    "health": data["stats"]["health"],
-                    "attack": data["stats"]["attack"],
-                    "defense": data["stats"]["defense"]}
+        base_stats = { # Changed
+                    "health": data["base_stats"]["health"], # Changed
+                    "attack": data["base_stats"]["attack"], # Changed
+                    "defense": data["base_stats"]["defense"], # Changed
+                    "strength": data["base_stats"]["strength"], # Changed
+                    "intelligence": data["base_stats"]["intelligence"] # Changed
+                    }
         status_effects = data.get("status_effect", {"buffs": {}, "debuffs": {}}) # TODO: Check this
 
         instance = cls(
             combatant_id=data["id"],
             name=data["name"],
-            stats = stats,
+            base_stats = base_stats, # Changed
             level=data.get("level", 1),
             hates_all=data.get("hates_all", False),
             hates_player_and_companions=data.get("hates_player_and_companions", False),
@@ -70,13 +71,194 @@ class Combatant:
         )
         instance.grudge_list = data.get("grudge_list", [])  # Restore grudges
         instance.current_room = data.get("current_room", None)
+        instance.stats = data.get("stats", instance.stats)
+        instance.skills = data.get("skills", instance.skills)
+        instance.grudge_list = data.get("grudge_list", instance.grudge_list)
         return instance
 
+    def _calculate_stats(self):
+        """Calculates the combatant's stats based on base stats and level."""
+        stats = {
+            "health": self.base_stats["health"],
+            "attack": self.base_stats["attack"],
+            "defense": self.base_stats["defense"],
+            "strength": self.base_stats["strength"],
+            "intelligence": self.base_stats["intelligence"]
+        }
+        # Apply level-based scaling
+        if "health_per_level" in self.base_stats:
+            stats["health"] += self.base_stats["health_per_level"] * (self.level - 1)
+        if "attack_per_level" in self.base_stats:
+            stats["attack"] += self.base_stats["attack_per_level"] * (self.level - 1)
+        if "defense_per_level" in self.base_stats:
+            stats["defense"] += self.base_stats["defense_per_level"] * (self.level - 1)
+        return stats
+
+    def describe_stats(self):
+        """Returns a string describing the combatant's stats."""
+        stats_descriptions = [
+            f"- health: {self.stats['health']}",  # Show current health
+            f"- attack: {self.stats['attack']}",
+            f"- defense: {self.stats['defense']}",
+            f"- strength: {self.stats['strength']}",
+            f"- intelligence: {self.stats['intelligence']}"
+        ]
+        return f"{self.name}'s stats:\n" + "\n".join(stats_descriptions)
+
+    def is_alive(self):
+            return self.stats["health"] > 0
+
+    def add_to_grudge_list(self, attacker_id):
+        if attacker_id not in self.grudge_list:
+            self.grudge_list.append(attacker_id)
+            # print(f"[DEBUG] {self.name} adds {attacker_id} to grudge list")
+
+    # Skills
+    def add_skill(self, skill_category, skill_name, skill_data):
+        """Adds a skill to the combatant's repertoire under a specific category."""
+        if skill_category not in self.skills:
+            raise ValueError(f"Invalid skill category: {skill_category}")
+        self.skills[skill_category][skill_name] = skill_data
+
+    def add_passive_skill(self, skill_category, skill_name, skill_data):
+        """Adds a passive skill to the combatant's repertoire under a specific category."""
+        if skill_category not in self.skills:
+            raise ValueError(f"Invalid skill category: {skill_category}")
+        self.skills[skill_category][skill_name] = skill_data
+
+    def can_use_skill(self, skill_name):
+        """Checks if a skill is available for use."""
+        # Check if the skill exists in any category
+        for category in self.skills:
+            if skill_name in self.skills[category]:
+                return True
+        return False
+
+    def use_skill(self, skill_name, target):
+        """Uses a skill on a target."""
+        # Find the skill in any category
+        skill_data = None
+        skill_category = None
+        for category in self.skills:
+            if skill_name in self.skills[category]:
+                skill_data = self.skills[category][skill_name]
+                skill_category = category
+                break
+
+        if skill_data is None:
+            print(f"{self.name} does not have the skill {skill_name}.")
+            return False
+
+        print(f"{self.name} uses {skill_name} on {target.name}!")
+
+        # Apply skill effects (this is a basic example)
+        if "base_damage" in skill_data:
+            damage = self._calculate_skill_damage(skill_data)
+            print(f"[DEBUG] {self.name} (ID: {self.id}) is using {skill_name} on {target.name} (ID: {target.id})")
+            print(f"[DEBUG] {skill_name} base damage: {skill_data.get('base_damage', 0)}")
+            if skill_data.get("scaling"):
+                print(f"[DEBUG] {skill_name} scaling stat: {skill_data.get('scaling')}, scaling value: {self.stats.get(skill_data.get('scaling'))}")
+            print(f"[DEBUG] {skill_name} calculated damage: {damage}")
+            target.take_damage(damage)
+        if "heal" in skill_data:
+            heal = skill_data["heal"]
+            print(f"{self.name} heals for {heal} health!")
+            self.stats["health"] += heal
+        if "cost" in skill_data:
+            self.current_mana -= skill_data["cost"]
+        if "effects" in skill_data:
+            for effect_name in skill_data["effects"]:
+                self._apply_effect(effect_name, target)
+
+        return True
+
+    def _calculate_skill_damage(self, skill_data):
+        """Calculates the damage of a skill based on its scaling."""
+        base_damage = skill_data.get("base_damage", 0)
+        scaling_stat = skill_data.get("scaling")
+
+        if scaling_stat:
+            # Check if the scaling stat exists in the combatant's stats
+            if scaling_stat in self.stats:
+                scaling_value = self.stats[scaling_stat]
+                # Apply scaling formula
+                damage = int(base_damage * (1 + (scaling_value / 10)))
+            else:
+                print(f"Warning: Scaling stat '{scaling_stat}' not found in combatant's stats.")
+                damage = base_damage
+        else:
+            damage = base_damage
+
+        return damage
+
+    def _apply_effect(self, effect_name, target):
+        """Applies an effect to the target."""
+        from game.available_skills import available_skills
+        if effect_name in available_skills["effects"]:
+            effect_data = available_skills["effects"][effect_name]
+            effect = Effect(
+                name=effect_name,
+                duration=effect_data["duration"],
+                modifier=effect_data["modifier"],
+                description=effect_data["description"],
+                # Add other effect attributes here
+            )
+            target.effects.append(effect)
+            effect.apply(target)
+            print(f"{target.name} is now affected by {effect_name}!")
+        else:
+            print(f"Effect '{effect_name}' not found.")
+
+    def take_damage(self, damage):
+        """Handles taking damage, including passive skill effects."""
+        print(f"[DEBUG take_damage] {self.name} (ID: {self.id}) is taking {damage} damage!") # Added debug statement
+        # Apply damage reduction from passive skills
+        total_reduction = 0
+        for skill_name, skill_data in self.skills["passive_defense"].items():
+            if skill_data.get("active", False) and "reduction" in skill_data:
+                total_reduction += skill_data["reduction"]
+                print(f"{self.name} reduces damage by {skill_data['reduction']} with {skill_name}!")
+
+        damage -= total_reduction
+        damage = max(damage, 0)  # Damage cannot be negative
+
+        # Apply damage to the combatant
+        self.stats["health"] -= damage
+        print(f"{self.name} takes {damage} damage!")
+        print(f"[DEBUG take_damage] {self.name} (ID: {self.id}) health after damage: {self.stats['health']}") # Added debug statement
+
+        # Trigger on_damage_taken effects
+        for effect in self.effects:
+            effect.damage_taken(self, damage)
+
+        if self.stats["health"] <= 0:
+            print(f"[DEBUG] {self.name} has been defeated!")
+            self.grudge_list.clear()  # Clear grudges when defeated
+            print(f"[DEBUG] Cleared grudge list for {self.name} (ID: {self.id})")
+        return self.stats["health"] > 0
+
+    def update_effects_start_of_turn(self):
+        """Handles effects at the start of the turn."""
+        for effect in self.effects:
+            effect.turn_start(self)
+
+    def update_effects_end_of_turn(self):
+        """Handles effects at the end of the turn."""
+        effects_to_remove = []
+        for effect in self.effects:
+            effect.duration -= 1
+            if effect.duration <= 0:
+                effects_to_remove.append(effect)
+
+        for effect in effects_to_remove:
+            effect.remove(self)
+            self.effects.remove(effect)
+            print(f"{effect.name} has worn off from {self.name}.")
 
 
 class Player(Combatant):
-    def __init__(self, combatant_id, name, stats, level, hates_all, hates_player_and_companions, hates, monster_type, has_traits, all_creature_traits_data, status_data, current_room=None, selected_traits=None):
-        super().__init__(combatant_id, name, stats, level, hates_all, hates_player_and_companions, hates, monster_type)
+    def __init__(self, combatant_id, name, base_stats, level, hates_all, hates_player_and_companions, hates, monster_type, has_traits, all_creature_traits_data, status_data, current_room=None, selected_traits=None):
+        super().__init__(combatant_id, name, base_stats, level, hates_all, hates_player_and_companions, hates, monster_type)
         from game.managers import CombatantManager
         self.level = level
         self.has_traits = has_traits
@@ -97,7 +279,8 @@ class Player(Combatant):
             "current_room": self.current_room,
             "has_traits": self.has_traits,
             "all_creature_traits_data": self.combatant_manager.all_traits,
-            "selected_traits": self.combatant_manager.selected_traits
+            "selected_traits": self.combatant_manager.selected_traits,
+            "skills": self.skills
         })
         return base
 
@@ -106,10 +289,12 @@ class Player(Combatant):
     def from_dict(cls, data):
         # print(f"[DEBUG COMBATANT.PY] data in from_dict: {data}")
 
-        stats = {
-            "health": data["stats"]["health"],
-            "attack": data["stats"]["attack"],
-            "defense": data["stats"]["defense"]
+        base_stats = { # Changed
+            "health": data["base_stats"]["health"], # Changed
+            "attack": data["base_stats"]["attack"], # Changed
+            "defense": data["base_stats"]["defense"], # Changed
+            "strength": data["base_stats"]["strength"], # Changed
+            "intelligence": data["base_stats"]["intelligence"] # Changed
         }
 
         # Extract and organize status effects properly
@@ -118,10 +303,10 @@ class Player(Combatant):
         }
 
         # Rebuild the Player object
-        return cls(
+        player = cls(
             combatant_id=data["id"],
             name=data["name"],
-            stats=stats,
+            base_stats=base_stats, # Changed
             level=data.get("level", 1),
             hates_all=data.get("hates_all", False),
             hates_player_and_companions=data.get("hates_player_and_companions", False),
@@ -133,12 +318,16 @@ class Player(Combatant):
             selected_traits=data.get("selected_traits", None),
             current_room=data.get("current_room", None)
         )
+        player.skills = data.get("skills", {})
+        player.stats = data.get("stats", player._calculate_stats())
+        player.grudge_list = data.get("grudge_list", [])
+        return player
 
 
 
 class Companion(Combatant):
-    def __init__(self, combatant_id, name, stats, level, hates_all, hates_player_and_companions, hates, monster_type, has_traits, all_creature_traits_data, status_data, current_room=None, selected_traits=None):
-        super().__init__(combatant_id, name, stats, level, hates_all, hates_player_and_companions, hates, monster_type)
+    def __init__(self, combatant_id, name, base_stats, level, hates_all, hates_player_and_companions, hates, monster_type, has_traits, all_creature_traits_data, status_data, current_room=None, selected_traits=None):
+        super().__init__(combatant_id, name, base_stats, level, hates_all, hates_player_and_companions, hates, monster_type)
         self.level = level
         self.has_traits = has_traits
         from game.managers import CombatantManager
@@ -159,7 +348,8 @@ class Companion(Combatant):
             "current_room": self.current_room,
             "has_traits": self.has_traits,
             "all_creature_traits_data": self.combatant_manager.all_traits,
-            "selected_traits": self.combatant_manager.selected_traits
+            "selected_traits": self.combatant_manager.selected_traits,
+            "skills": self.skills
         })
         return base
 
@@ -168,10 +358,12 @@ class Companion(Combatant):
     def from_dict(cls, data):
         # print(f"[DEBUG COMBATANT.PY] data in from_dict: {data}")
 
-        stats = {
-            "health": data["stats"]["health"],
-            "attack": data["stats"]["attack"],
-            "defense": data["stats"]["defense"]
+        base_stats = { # Changed
+            "health": data["base_stats"]["health"], # Changed
+            "attack": data["base_stats"]["attack"], # Changed
+            "defense": data["base_stats"]["defense"], # Changed
+            "strength": data["base_stats"]["strength"], # Changed
+            "intelligence": data["base_stats"]["intelligence"] # Changed
         }
 
         # Extract and organize status effects properly
@@ -179,10 +371,10 @@ class Companion(Combatant):
             "status_effect": data.get("status_effect", {"buffs": {}, "debuffs": {}})
         }
 
-        return cls(
+        companion = cls(
             combatant_id=data["id"],
             name=data["name"],
-            stats=stats,
+            base_stats=base_stats, # Changed
             level=data.get("level", 1),
             hates_all=data.get("hates_all", False),
             hates_player_and_companions=data.get("hates_player_and_companions", False),
@@ -194,15 +386,19 @@ class Companion(Combatant):
             selected_traits=data.get("selected_traits", None),
             current_room = data.get("current_room", None)
         )
+        companion.skills = data.get("skills", {})
+        companion.stats = data.get("stats", companion._calculate_stats())
+        companion.grudge_list = data.get("grudge_list", [])
+        return companion
 
 
 class Monster(Combatant):
-    def __init__(self, combatant_id, name, stats, level, hates_all, hates_player_and_companions, hates, monster_type, has_traits, all_creature_traits_data, status_data, current_room=None, selected_traits=None):
+    def __init__(self, combatant_id, name, base_stats, level, hates_all, hates_player_and_companions, hates, monster_type, has_traits, all_creature_traits_data, status_data, current_room=None, selected_traits=None):
         """
         :param level: The level of the monster, which affects its stats and descriptions.
         """
         # Include the 'level' argument when calling the parent constructor
-        super().__init__(combatant_id, name, stats, level, hates_all, hates_player_and_companions, hates, monster_type)
+        super().__init__(combatant_id, name, base_stats, level, hates_all, hates_player_and_companions, hates, monster_type)
         
         self.level = level
         self.has_traits = has_traits
@@ -248,7 +444,8 @@ class Monster(Combatant):
             "has_traits": {key: value for key, value in self.has_traits.items()},
             "current_room": self.current_room,
             "all_creature_traits_data": self.combatant_manager.all_traits,
-            "selected_traits": self.combatant_manager.selected_traits
+            "selected_traits": self.combatant_manager.selected_traits,
+            "skills": self.skills
         })
         return base
 
@@ -257,20 +454,23 @@ class Monster(Combatant):
     def from_dict(cls, data):
         # print(f"[DEBUG COMBATANT.PY] data in from_dict: {data}")
 
-        stats = {
-            "health": data["stats"]["health"],
-            "attack": data["stats"]["attack"],
-            "defense": data["stats"]["defense"]}
+        base_stats = { # Changed
+            "health": data["base_stats"]["health"], # Changed
+            "attack": data["base_stats"]["attack"], # Changed
+            "defense": data["base_stats"]["defense"], # Changed
+            "strength": data["base_stats"]["strength"], # Changed
+            "intelligence": data["base_stats"]["intelligence"] # Changed
+        }
         
         # Extract and organize status effects properly
         status_data = {
             "status_effect": data.get("status_effect", {"buffs": {}, "debuffs": {}})
         }
 
-        return cls(
+        monster = cls(
             combatant_id=data["id"],
             name=data["name"],
-            stats=stats,
+            base_stats=base_stats, # Changed
             level=data.get("level", 1),
             hates_all=data.get("hates_all", False),
             hates_player_and_companions=data.get("hates_player_and_companions", False),
@@ -282,7 +482,10 @@ class Monster(Combatant):
             selected_traits=data.get("selected_traits", None),
             current_room=data.get("current_room", None)
         )
-
+        monster.skills = data.get("skills", {})
+        monster.stats = data.get("stats", monster._calculate_stats())
+        monster.grudge_list = data.get("grudge_list", [])
+        return monster
 
     def _apply_selected_traits(self):
         self.has_traits.update(self.combatant_manager.selected_traits)

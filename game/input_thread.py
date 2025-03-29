@@ -7,7 +7,7 @@ from prompt_toolkit.completion import WordCompleter
 from game.helper_functions import CommandCompleter
 from game.managers import RoomManager
 from game.shared_resources import stop_event, game_style
-from game.helper_functions import remove_creature_by_id, create_cluster_command_wrapper, clear_screen
+from game.helper_functions import remove_creature_by_id, create_cluster_command_wrapper, clear_screen, use_skill_command
 import threading
 
 DEBUG = False
@@ -97,6 +97,10 @@ def load_game(player, turn_manager, movement_manager, player_action_manager):
             # Set the player_action_manager's player to the current player
             player_action_manager.player = player
 
+            # Update player skills and stats from loaded data
+            player.skills = player_data.skills
+            player.stats = player_data.stats
+
         else:
             print(f"[ERROR load_game] Player with ID {player.id} not found in loaded data!")
 
@@ -123,6 +127,10 @@ def input_thread(player, movement_manager, turn_manager, player_action_manager):
 
 
     commands = {
+        "use_skill": {
+            "description": "Use a skill",
+            "handler": lambda: use_skill_command(player, turn_manager.room_manager),
+        },
         "create_cluster": {
             "description": "Create a room cluster in a specified direction.",
             "handler": create_cluster_command_wrapper,  # Use the wrapper here
