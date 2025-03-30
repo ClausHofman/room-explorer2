@@ -1,11 +1,13 @@
 import sys
 from game.helper_functions import initialize_game
 from game.input_thread import input_thread
+from game.shared_resources import game_colors
+from prompt_toolkit import print_formatted_text
+from prompt_toolkit.formatted_text import ANSI
 import threading, time
 
 def main():
     from game.input_thread import stop_event
-    print(f"[DEBUG] stop_event in main(): {id(stop_event)}")
 
     start_game = initialize_game()
 
@@ -25,32 +27,26 @@ def main():
 
     turn_manager = start_game["turn_manager"]
     room_manager = start_game["room_manager"]
-    player_action_manager = start_game["player_action_manager"]
-    player = start_game["player"]
-    movement_manager = turn_manager.movement_manager
     room_manager = turn_manager.room_manager
 
     room_manager.generate_map(size=7, search_depth=40)
     
-    # print_formatted_text(HTML(f"<ansigreen>Type 'list_commands' for available commands.</ansigreen>"))
-    # print_formatted_text(ANSI(f"{game_colors['LIST_COMMANDS']} Type 'list_commands' for available commands. {game_colors['COLOR_RESET']}"))
-
+    print_formatted_text(ANSI(f"{game_colors['LIST_COMMANDS']} Type 'list_commands' for available commands. {game_colors['COLOR_RESET']}"))
 
     if not user_input_thread.is_alive():
         print("Input thread has unexpectedly stopped.")
 
-    # print(f"Main loop stop_event: {id(stop_event)}")
+    # print(f"[DEBUG] stop_event in main(): {id(stop_event)}")
 
     try:
-        # Main program logic (e.g., command handling)
-        while not stop_event.is_set():  # Stop the loop when stop_event is triggered
-            time.sleep(2)
+        while not stop_event.is_set():
+            time.sleep(1)
     except KeyboardInterrupt:
         print("KeyboardInterrupt detected. Stopping the program...")
-        stop_event.set()  # Trigger stop_event manually if interrupted
+        stop_event.set()
     finally:
         print("All threads have stopped. Exiting program.")
-        sys.exit()  # Exit the program cleanly
+        sys.exit()
 
 if __name__ == "__main__":
     main()

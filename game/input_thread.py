@@ -7,7 +7,7 @@ from prompt_toolkit.completion import WordCompleter
 from game.helper_functions import CommandCompleter
 from game.managers import RoomManager
 from game.shared_resources import stop_event, game_style
-from game.helper_functions import remove_creature_by_id, create_cluster_command_wrapper, clear_screen, use_skill_command
+from game.helper_functions import remove_creature_by_id, create_cluster_command, clear_screen, use_skill_command
 import threading
 
 DEBUG = False
@@ -133,7 +133,7 @@ def input_thread(player, movement_manager, turn_manager, player_action_manager):
         },
         "create_cluster": {
             "description": "Create a room cluster in a specified direction.",
-            "handler": create_cluster_command_wrapper,  # Use the wrapper here
+            "handler": lambda: create_cluster_command(turn_manager.room_manager, player),  # Use the new function here
         },
         "create_test_rooms": {
             "description": "Create a large number of rooms for testing.",

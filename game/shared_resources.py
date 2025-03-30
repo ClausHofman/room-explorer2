@@ -85,6 +85,14 @@ room_type_data = {
     "generic_fixed": {
         "short_description": "A nondescript room.",
         "long_description": "The room is plain and unremarkable, with only bare walls and a floor of smooth stone."
+    },
+    "starting_area_fixed": {
+        "short_description": "A starting area.",
+        "long_description": "This is the starting area."
+    },
+    "starting_area_custom": {
+        "short_description": "A custom starting area.",
+        "long_description": "This is a custom starting area."
     }
 }
 
@@ -93,7 +101,7 @@ room_type_data = {
 # Define custom ANSI escape code variables
 game_colors = {
 "PLAYER_COLOR": "\033[38;5;165m",
-"LIST_COMMANDS": "\033[38;5;76m",
+"LIST_COMMANDS": "\033[38;5;39m",
 "COLOR_RESET": "\033[0m"
 }
 

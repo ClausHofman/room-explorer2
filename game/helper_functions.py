@@ -1,10 +1,11 @@
 import uuid, os
 import game.combatant_data as combatant_data
 from game.managers import TurnManager, RoomManager, MovementManager, SaveLoadManager, PlayerActionManager
-from game.shared_resources import stop_event, game_style
+from game.shared_resources import stop_event, game_style, room_type_data
 from game.available_skills import available_skills
 from prompt_toolkit import print_formatted_text
 from prompt_toolkit.formatted_text import  FormattedText
+from pprint import pprint
 
 print("helper_functions.py stop event:", stop_event)
 print(f"helper_functions.py stop_event: {id(stop_event)}")
@@ -71,22 +72,20 @@ def initialize_game():
     movement_manager.turn_manager = turn_manager
     player_action_manager = PlayerActionManager(room_manager=room_manager, player=player)
 
-
-    print(f"[DEBUG initialize_game] Dragon base_stats: {dragon1.base_stats}")
-    print(f"[DEBUG initialize_game] Player base_stats: {player.base_stats}")
-    print(f"[DEBUG initialize_game] Companion base_stats: {companion1.base_stats}")
-
-    ### # Example Usage
-    # room_manager = RoomManager()  # Assuming RoomManager is defined elsewhere
-    # player = Player()  # Assuming Player is defined elsewhere
-
-    # action_manager = ActionManager(room_manager, player)
-
-    # # Now, ActionManager can use MovementManager's methods
-    # action_manager.move_player(player, "north")
-    ### action_manager.perform_action("Attack")
-
+    # print(vars(turn_manager))
+    # print(vars(room_manager))
+    # print(vars(movement_manager))
+    # print(vars(player_action_manager))
+    # pprint(dir(turn_manager))
+    # pprint(dir(room_manager))
+    # pprint(dir(movement_manager))
+    # pprint(dir(player_action_manager))
+    # pprint(help(player_action_manager))
     
+    # print(f"[DEBUG initialize_game] Dragon base_stats: {dragon1.base_stats}")
+    # print(f"[DEBUG initialize_game] Player base_stats: {player.base_stats}")
+    # print(f"[DEBUG initialize_game] Companion base_stats: {companion1.base_stats}")
+
     room1 = room_object.Room()
     room_manager.add_room(room1)
 
@@ -104,22 +103,12 @@ def initialize_game():
     room1.add_combatant(player)
     room1.player_in_room=True
     
+    # for id, exits in room_manager.room_lookup.items():
+    #     print(f"Room id: {id}, exits: {exits.room_exits}")
 
-    # print(player_action_manager)
-    print("---------------- DEBUG ROOM LOOKUP ------------------")
-    for id, exits in room_manager.room_lookup.items():
-        print(f"Room id: {id}, exits: {exits.room_exits}")
-
-    # print(player.current_room)
-    # movement_manager.move_entity(player, "north")
-
-    # print(f"---------DEBUG-------- get_room_info")
-    # print(room_manager.get_room_info(room1.room_id))
-    # print(room_manager.get_room_info(room2.room_id))
-
-    # pprint(dir(room))
+    # pprint(dir(room1))
     # print("---------------------------------")
-    # pprint(vars(room))
+    # pprint(vars(room1))
 
     room1.add_combatant(companion1)
     room1.add_combatant(dragon1)
@@ -127,16 +116,12 @@ def initialize_game():
 
     print(room_manager.room_lookup[f"{dragon1.current_room}"].room_exits)
 
-    # Test create_and_connect_rooms
-    # room_manager.create_and_connect_rooms(room1)
-
 
     room1.spawn_monsters(["dragon"])
     room1.detect_hostility(turn_manager)
     dragon1.combatant_manager.add_buff("strength_boost", 5, 10)
     # room2.spawn_monsters("dragon")
     # room2.spawn_monsters(["goblin", "wolf", "wolf", "wolf", "wolf", "rabbit"])
-
 
     # pprint(dir(player))
     # print("---------------------------------")
@@ -148,7 +133,6 @@ def initialize_game():
 
     # print(RoomManager)  # Should display <class 'RoomManager'>
     # print(hasattr(RoomManager, "from_dict"))  # Should display True
-
 
     # room_manager = None
     # turn_manager = None
@@ -165,7 +149,6 @@ def initialize_game():
 
     # Retrieve room manager from the turn manager
     room_manager = turn_manager.room_manager
-
 
     # Retrieve movement manager from the turn manager
     if turn_manager.movement_manager is None:
@@ -577,7 +560,7 @@ def generate_internal_connections(width, length):
     print(f"[DEBUG generate_internal_connections] Generated internal connections: {internal_connections}")
     return internal_connections
 
-def create_room_cluster(room_manager, start_room, direction, width, length, internal_connections):
+def create_room_cluster(room_manager, start_room, direction, width, length, internal_connections, room_type="generic_random"):
     """
     Creates a grid of rooms starting from a specified direction relative to a central room.
     Connects the rooms internally and with adjacent rooms if they exist.
@@ -589,6 +572,7 @@ def create_room_cluster(room_manager, start_room, direction, width, length, inte
         width: The width of the grid (number of columns).
         length: The length of the grid (number of rows).
         internal_connections: The list of tuples defining the internal connections.
+        room_type: The type of room to create (e.g., "forest_random", "cave_fixed").
     
     Returns:
         A dictionary of rooms in the grid, keyed by their grid positions (1 to width*length).
@@ -599,6 +583,10 @@ def create_room_cluster(room_manager, start_room, direction, width, length, inte
     valid_directions = ["north", "south", "east", "west"]
     if direction not in valid_directions:
         raise ValueError(f"Invalid direction: {direction}. Must be one of {valid_directions}")
+
+    # Ensure the room_type is valid
+    if room_type not in room_type_data and not room_type.endswith("_custom"):
+        raise ValueError(f"Invalid room_type: {room_type}. Must be one of {list(room_type_data.keys())} or end with '_custom'")
 
     # Initialize placeholders for adjacent rooms
     north_room, south_room, east_room, west_room = None, None, None, None
@@ -622,11 +610,12 @@ def create_room_cluster(room_manager, start_room, direction, width, length, inte
 
     # Create all rooms
     for room_number in range(1, width * length + 1):
-        new_room = Room()
+        new_room = Room(room_type=room_type)  # Pass room_type to Room constructor
         room_manager.add_room(new_room)
         rooms[room_number] = new_room
-        print(f"[DEBUG CLUSTER] Created room: {room_number}")
+        print(f"[DEBUG CLUSTER] Created room: {room_number} with room_type: {room_type}")
 
+    # ... (Rest of the function remains the same) ...
     # Connect the first three rooms to the start room and adjacent rooms
     if direction == "north":
         start_room.connect(rooms[length*width-width+2], "north") # 3x3: 8, 4x4: 14
@@ -691,9 +680,9 @@ def create_room_cluster(room_manager, start_room, direction, width, length, inte
 
     return rooms
 
-
 def create_cluster_command(room_manager, player):
     """Handles the 'create_cluster' command."""
+    from game.shared_resources import room_type_data
     valid_directions = ["north", "south", "east", "west"]  # Only cardinal directions
     while True:
         direction = input(f"Enter the direction to expand the cluster ({', '.join(valid_directions)} or press Enter to abort):\n").strip().lower()
@@ -706,8 +695,17 @@ def create_cluster_command(room_manager, player):
             continue
         while True:
             try:
-                width = int(input("Enter the width of the cluster (horizontal axis):\n"))
-                length = int(input("Enter the length of the cluster (vertical axis):\n"))
+                width = input("Enter the width of the cluster (horizontal axis, or press Enter to abort):\n").strip()
+                if width == "":
+                    print("Aborting cluster creation.")
+                    return "Aborting cluster creation."
+                width = int(width)
+
+                length = input("Enter the length of the cluster (vertical axis, or press Enter to abort):\n").strip()
+                if length == "":
+                    print("Aborting cluster creation.")
+                    return "Aborting cluster creation."
+                length = int(length)
 
                 if width < 1 or length < 1:
                     print("Width and length must be greater than 0.")
@@ -716,13 +714,56 @@ def create_cluster_command(room_manager, player):
             except ValueError:
                 print("Invalid input. Please enter integers for width and length.")
 
+        # Get the room type from the user
+        while True:
+            room_type = input(f"Enter the type of rooms to create ({', '.join(room_type_data.keys())}, or type 'custom' to create a custom room type, or press Enter for 'generic_random'):\n").strip().lower()
+            if room_type == "":
+                room_type = "generic_random"  # Default room type
+                break
+            # Check if the room type is in the keys
+            if room_type in room_type_data:
+                break
+            if room_type == "custom":
+                while True:
+                    custom_room_name = input(f"Enter a name for the custom room type (it must end with '_custom', or press Enter to abort):\n").strip().lower()
+                    if custom_room_name == "":
+                        print("Aborting cluster creation.")
+                        return "Aborting cluster creation."
+                    if not custom_room_name.endswith("_custom"):
+                        print("Custom room type name must end with '_custom'.")
+                        continue
+                    
+                    room_type = custom_room_name
+                    if room_type in room_type_data:
+                    
+                        short_description = input("Enter a short description for the custom room type (or press Enter to abort):\n").strip()
+                        if short_description == "":
+                            print("Aborting cluster creation.")
+                            return "Aborting cluster creation."
+                        long_description = input("Enter a long description for the custom room type (or press Enter to abort):\n").strip()
+                        if long_description == "":
+                            print("Aborting cluster creation.")
+                            return "Aborting cluster creation."
+                        room_type_data[room_type] = {
+                            "short_description": [short_description],
+                            "long_description": [long_description]
+                        }
+                    else:
+                        print(f"Room type '{room_type}' does not exist. Please choose a different name or create a new custom room type.")
+                        continue
+                    break  # Exit the inner loop if the name is unique
+                break # Exit the outer loop if custom was chosen
+            if room_type not in room_type_data:
+                print(f"Invalid room type '{room_type}'. Please choose from: {', '.join(room_type_data.keys())} or type 'custom'.")
+                continue
+            break
+
         start_room = room_manager.room_lookup[player.current_room]
         internal_connections = generate_internal_connections(width, length)
-        create_room_cluster(room_manager, start_room, direction, width, length, internal_connections)
-        success_message = f"{width}x{length} room cluster created to the {direction} of room '{start_room.room_id}'."
+        create_room_cluster(room_manager, start_room, direction, width, length, internal_connections, room_type)
+        success_message = f"{width}x{length} {room_type} room cluster created to the {direction} of room '{start_room.room_id}'."
         print(success_message)
         return success_message  # Return the success message for logging purposes
-
 
 def create_cluster_command_wrapper():
     """Wrapper for create_cluster_command to handle user input."""

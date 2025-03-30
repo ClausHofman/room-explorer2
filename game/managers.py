@@ -13,8 +13,14 @@ class PlayerActionManager(): # Changed
         """Displays information about the current room."""
         current_room = self.room_manager.room_lookup[self.player.current_room]
 
-        # Get a random long description of the current room
-        room_description = random.choice(room_type_data[current_room.room_type]['long_description'])
+        # Get the room type's data
+        room_data = room_type_data[current_room.room_type]
+
+        # Handle both list and single string for long_description
+        if isinstance(room_data['long_description'], list):
+            room_description = random.choice(room_data['long_description'])
+        else:
+            room_description = room_data['long_description']
 
         # Print the room description using prompt_toolkit's styling
         print_formatted_text(FormattedText([
@@ -30,9 +36,17 @@ class PlayerActionManager(): # Changed
             nearby_room_type = self.room_manager.room_lookup[room_id].room_type
             # Query key that matches room type and display description
             # print(f"{direction}: {random.choice(room_type_data[nearby_room_type]['short_description'])}")
+            
+            # Handle both list and single string for short_description
+            nearby_room_data = room_type_data[nearby_room_type]
+            if isinstance(nearby_room_data['short_description'], list):
+                nearby_room_description = random.choice(nearby_room_data['short_description'])
+            else:
+                nearby_room_description = nearby_room_data['short_description']
+
             print_formatted_text(FormattedText([
                 ('class:room-exit', f"{direction}: "),  # Direction (e.g., "North: ")
-                ('class:room-nearby', f"{random.choice(room_type_data[nearby_room_type]['short_description'])}")  # Room description
+                ('class:room-nearby', f"{nearby_room_description}")  # Room description
             ]), style=game_style)
 
 
@@ -41,9 +55,10 @@ class PlayerActionManager(): # Changed
             for combatant in current_room.combatants:
                 # if combatant.id != self.player.id:
                     print(f"  - {combatant.name} (ID: {combatant.id})")
-                    print(f"    {combatant.describe_stats()}")
+                    # print(f"    {combatant.describe_stats()}")
         else:
             print("There are no combatants in the room.")
+
 
     # Called when the player moves with MovementManager
     def exits(self):
