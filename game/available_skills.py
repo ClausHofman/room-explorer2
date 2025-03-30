@@ -10,7 +10,7 @@ available_skills = {
             "active": True,
             "description": "A basic melee attack.",
             "effects": [],
-            "cooldown": 1,
+            "cooldown": 2,
             "current_cooldown": 1
         },
         "fireball": {
@@ -38,7 +38,7 @@ available_skills = {
     },
     "restoration_magic": {
         "cure_light_wounds": {
-            "base_heal": 20,
+            "base_heal": 200,
             "stat_scaling": "wisdom",
             "level_scaling_factor": 0.002,
             "level": 1,
@@ -61,6 +61,7 @@ available_skills = {
     },
     "passive_offense": {
         "attack": {
+            "base_damage": 0,
             "level_scaling_factor": 0.002,
             "level": 1,
             "active": True,

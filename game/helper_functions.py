@@ -48,19 +48,21 @@ def initialize_game():
         status_data=combatant_data.creature_status_data,
         level=100
     )
-    print(player.describe_stats())
-    player.level_up_skill("slash")  # Levels up the "slash" skill
-    player.level_up_skill("attack") # Levels up the "attack" skill
-    print(player.describe_stats())
+    # print(player.describe_stats())
+    # player.level_up_skill("slash")  # Levels up the "slash" skill
+    # player.level_up_skill("attack") # Levels up the "attack" skill
+    # print(player.describe_stats())
 
     companion1 = create_companion(
         creature_type="companion",
         companion_data=combatant_data.companion_data,
         creature_traits=combatant_data.creature_traits_data,
         status_data=combatant_data.creature_status_data,
-        level=100
+        level=10
     )
-    # print(companion1.describe_stats())
+    print(companion1.describe_stats())
+    companion1.level_up_skill("cure_light_wounds")  # Levels up the "cure_light_wounds" skill
+    print(companion1.describe_stats())
 
     turn_manager = TurnManager(stop_event)
     room_manager = RoomManager(player=player)

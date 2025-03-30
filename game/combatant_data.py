@@ -28,7 +28,8 @@ companion_data = {
         "skills": {
             "offensive_melee": ["poison_bite"],
             "passive_offense": ["attack"],
-            "general": ["combat_initiative"]
+            "general": ["combat_initiative"],
+            "restoration_magic": ["cure_light_wounds"]
         },
         "has_traits": {}
     }
@@ -196,7 +197,7 @@ player_data = {
             "admin": "Mysterious admin powers"
         },
         "skills": {
-            "offensive_melee": [],
+            "offensive_melee": ["slash"],
             "passive_offense": ["attack"],
             "general": ["combat_initiative"]
         }

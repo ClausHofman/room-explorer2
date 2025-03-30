@@ -126,7 +126,11 @@ class Combatant:
                 if self.can_use_skill(skill_name)
             ]
             if available_skills_in_category:
-                return random.choice(available_skills_in_category)
+                # Only heal self if needed
+                if needed_category == "restoration_magic":
+                    return "cure_light_wounds"
+                else:
+                    return random.choice(available_skills_in_category)
 
         # If no skill was chosen, return None
         return None
@@ -286,16 +290,21 @@ class Combatant:
 
         print(f"{self.name} uses {skill_name} on {target.name}!")
 
-        damage = self._calculate_skill_damage(skill_data)
-        if damage > 0:
+        healing_or_damage = self._calculate_skill_damage(skill_data)
+
+        if "base_damage" in skill_data and healing_or_damage > 0: # Check if it's a damaging skill
             print(f"[DEBUG] {self.name} (ID: {self.id}) is using {skill_name} on {target.name} (ID: {target.id})")
             print(f"[DEBUG] {skill_name} base damage: {skill_data.get('base_damage', 0)}")
             if skill_data.get("stat_scaling"):
                 print(f"[DEBUG] {skill_name} scaling stat: {skill_data.get('stat_scaling')}, scaling value: {self.stats.get(skill_data.get('stat_scaling'))}")
             if skill_data.get("flat_stat_scaling"):
                 print(f"[DEBUG] {skill_name} flat scaling stat: {skill_data.get('flat_stat_scaling')}, scaling value: {self.stats.get(skill_data.get('flat_stat_scaling'))}")
-            print(f"[DEBUG] {skill_name} calculated damage: {damage}")
-            target.take_damage(damage)
+            print(f"[DEBUG] {skill_name} calculated damage: {healing_or_damage}")
+            target.take_damage(healing_or_damage)
+
+        elif "base_heal" in skill_data and healing_or_damage > 0: # Check if it's a healing skill
+            target.heal(healing_or_damage)
+
         if "effects" in skill_data:
             for effect_name in skill_data["effects"]:
                 self._apply_effect(effect_name, target)
@@ -306,8 +315,9 @@ class Combatant:
         return True
 
     def _calculate_skill_damage(self, skill_data):
-        """Calculates the damage of a skill based on its scaling."""
+        """Calculates the damage or healing of a skill based on its scaling."""
         base_damage = skill_data.get("base_damage", 0)
+        base_heal = skill_data.get("base_heal", 0)
         stat_scaling = skill_data.get("stat_scaling")
         level_scaling_factor = skill_data.get("level_scaling_factor", 0)
         skill_level = skill_data.get("level", 1)
@@ -315,9 +325,15 @@ class Combatant:
         flat_scaling_value = skill_data.get("flat_scaling_value", 0)
         combined_stat_scaling = skill_data.get("combined_stat_scaling")
 
-        damage = 0
+        healing_or_damage = 0
 
-        if combined_stat_scaling:
+        if base_heal > 0: # Healing skill
+            if stat_scaling:
+                scaling_value = self.stats[stat_scaling]
+                healing_or_damage = int(base_heal * (1 + (scaling_value / 10)) * (1 + (self.level * level_scaling_factor)) * (1 + (skill_level / 10)))
+            else:
+                healing_or_damage = base_heal
+        elif combined_stat_scaling:
             combined_scaling_total = 0
             for stat, weight in combined_stat_scaling:
                 if stat in self.stats:
@@ -326,26 +342,32 @@ class Combatant:
                     combined_scaling_total += skill_level * weight
                 else:
                     print(f"Warning: Combined scaling stat '{stat}' not found in combatant's stats.")
-            damage = int(combined_scaling_total * (1 + (self.level * level_scaling_factor)) * (1 + (skill_level / 10)))
+            healing_or_damage = int(combined_scaling_total * (1 + (self.level * level_scaling_factor)) * (1 + (skill_level / 10)))
         elif flat_stat_scaling:
             if flat_stat_scaling in self.stats:
                 flat_scaling_stat_value = self.stats[flat_stat_scaling]
-                damage = int(flat_scaling_stat_value * flat_scaling_value)
+                healing_or_damage = int(flat_scaling_stat_value * flat_scaling_value)
             else:
                 print(f"Warning: Flat scaling stat '{flat_stat_scaling}' not found in combatant's stats.")
-                damage = 0
+                healing_or_damage = 0
         elif stat_scaling:
             if stat_scaling in self.stats:
                 scaling_value = self.stats[stat_scaling]
-                # Apply scaling formula
-                damage = int(base_damage * (1 + (scaling_value / 10)) * (1 + (self.level * level_scaling_factor)) * (1 + (skill_level / 10)))
+                healing_or_damage = int(base_damage * (1 + (scaling_value / 10)) * (1 + (self.level * level_scaling_factor)) * (1 + (skill_level / 10)))
             else:
                 print(f"Warning: Scaling stat '{stat_scaling}' not found in combatant's stats.")
-                damage = base_damage
+                healing_or_damage = base_damage
         else:
-            damage = base_damage
+            healing_or_damage = base_damage
 
-        return damage
+        return healing_or_damage
+
+    def heal(self, amount):
+        """Heals the combatant for a specified amount."""
+        max_health = self._calculate_stats()["health"] # Calculate max health dynamically
+        # TODO: maybe some clarification needed
+        self.stats["health"] = min(self.stats["health"] + amount, max_health)
+        print(f"{self.name} heals for {amount} health! Current health: {self.stats['health']}")
 
     def _calculate_combat_initiative(self):
         """Calculates the combat initiative for this combatant."""
@@ -399,7 +421,7 @@ class Combatant:
 
     def take_damage(self, damage):
         """Handles taking damage, including passive skill effects."""
-        print(f"[DEBUG take_damage] {self.name} (ID: {self.id}) is taking {damage} damage!") # Added debug statement
+        print(f"[DEBUG take_damage] {self.name} (ID: {self.id}) is taking {damage} damage!")  # Added debug statement
         # Apply damage reduction from passive skills
         total_reduction = 0
         for skill_name, skill_data in self.skills["passive_defense"].items():
@@ -413,7 +435,7 @@ class Combatant:
         # Apply damage to the combatant
         self.stats["health"] -= damage
         print(f"{self.name} takes {damage} damage!")
-        print(f"[DEBUG take_damage] {self.name} (ID: {self.id}) health after damage: {self.stats['health']}") # Added debug statement
+        print(f"[DEBUG take_damage] {self.name} (ID: {self.id}) health after damage: {self.stats['health']}")  # Added debug statement
 
         # Trigger on_damage_taken effects
         for effect in self.effects:

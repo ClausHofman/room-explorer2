@@ -211,37 +211,53 @@ class Room:
                 # Start of turn effects
                 combatant.update_effects_start_of_turn()
 
-                target = self.select_target(combatant)
-                if not target:
-                    # print(f"[DEBUG advance_combat_round] {combatant.name} could not find a valid target.")
-                    continue
-
-                # Skill usage decision (hardcoded for now)
+                # Skill usage decision, handle ai using healing first
                 skill_used = False
                 if combatant.monster_type != "player":
-                    skill_name = combatant.select_ai_skill(target)
+                    skill_name = combatant.select_ai_skill(None)
                     if skill_name:
+                        if skill_name == "cure_light_wounds":
+                            target = combatant
+                        else:
+                            target = self.select_target(combatant)
+                            if target is None:
+                                skill_used = False
+                                print(f"[DEBUG advance_combat_round] No target found for {combatant.name}, using default attack.")
+                                if combatant.can_use_skill("attack"):
+                                    target = self.select_target(combatant) # Select target for default attack
+                                    if target is not None:
+                                        combatant.use_skill("attack", target)
+                                        skill_used = True
+                                    else:
+                                        print(f"[DEBUG advance_combat_round] {combatant.name} (ID: {combatant.id}) does not have the attack skill or no target found.")
+                                else:
+                                    print(f"[DEBUG advance_combat_round] {combatant.name} failed to use default attack!")
+                                continue
                         combatant.use_skill(skill_name, target)
                         skill_used = True
 
                 elif combatant.monster_type == "player":
-                    if combatant.can_use_skill("slash"):
-                        combatant.use_skill("slash", target)
-                        skill_used = True
-                    elif combatant.can_use_skill("double_slash"):
-                        combatant.use_skill("double_slash", target)
-                        skill_used = True
-                    elif combatant.can_use_skill("attack"):
-                        combatant.use_skill("attack", target)
-                        skill_used = True
+                    target = self.select_target(combatant)
+                    if target is not None: # Check if target exists
+                        if combatant.can_use_skill("slash"):
+                            combatant.use_skill("slash", target)
+                            skill_used = True
+                        elif combatant.can_use_skill("double_slash"):
+                            combatant.use_skill("double_slash", target)
+                            skill_used = True
+                        elif combatant.can_use_skill("attack"):
+                            combatant.use_skill("attack", target)
+                            skill_used = True
+                    else:
+                        print(f"[DEBUG advance_combat_round] No target found for player, skipping skill usage.")
 
                 if not skill_used:
                     print(f"DEBUG A skill was not used, using default attack for {combatant.name}")
-                    # Use the default attack skill if no other skill was used
-                    if combatant.can_use_skill("attack"):
+                    target = self.select_target(combatant)
+                    if target is not None and combatant.can_use_skill("attack"):
                         combatant.use_skill("attack", target)
                     else:
-                        print(f"[DEBUG advance_combat_round] {combatant.name} (ID: {combatant.id}) does not have the attack skill.")
+                        print(f"[DEBUG advance_combat_round] {combatant.name} (ID: {combatant.id}) does not have the attack skill or no target found.")
 
                 # End of turn effects
                 print(f"[DEBUG advance_combat_round] Updating end of turn effects for {combatant.name} (ID: {combatant.id})")
