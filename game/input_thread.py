@@ -20,6 +20,7 @@ print("input_thread.py stop event:", stop_event)
 print(f"input_thread.py stop_event: {id(stop_event)}")
 
 
+
 def load_game(player, turn_manager, movement_manager, player_action_manager):
     from game.managers import SaveLoadManager
     print("[DEBUG load_game] Starting to load the game.")
@@ -107,7 +108,6 @@ def load_game(player, turn_manager, movement_manager, player_action_manager):
         print("[DEBUG load_game] Game loaded successfully!")
     else:
         print("[ERROR load_game] Failed to load game.")
-
 
 
 def input_thread(player, movement_manager, turn_manager, player_action_manager):
@@ -211,6 +211,10 @@ def input_thread(player, movement_manager, turn_manager, player_action_manager):
             "description": "Load a saved game state",
             "handler": lambda: load_game(player, turn_manager, movement_manager, player_action_manager),
         },
+            "load2": {
+                "description": "Load a saved game state, preserving player stats and skills",
+                "handler": lambda: load_game_with_player_transfer(player, turn_manager, movement_manager, player_action_manager, target_room_id="room3"),
+            },
     }
 
 
@@ -301,30 +305,166 @@ def quit_game():
     print("Active threads:", threading.enumerate())
     print("stop_event has been set.")
 
-# Color testing
-# from colorama import Fore, Style, init
 
-# def found_secret_room():
-#     print(Fore.MAGENTA + Style.BRIGHT + "You have discovered a secret room!" + Style.RESET_ALL)
+def load_game_with_player_transfer(player, turn_manager, movement_manager, player_action_manager, target_room_id=None):
+    """
+    Loads a game state from a file, transferring the current player's data to the loaded player.
 
-# def picked_up_item(item_name):
-#     print(Fore.YELLOW + f"You picked up: {item_name}" + Style.RESET_ALL)
+    Args:
+        player: The current player object.
+        turn_manager: The current TurnManager instance.
+        movement_manager: The current MovementManager instance.
+        player_action_manager: The current PlayerActionManager instance.
+        target_room_id: The ID of the room to place the player in after loading.
+    """
+    from game.managers import SaveLoadManager
 
-# def critical_warning(message):
-#     print(Fore.RED + Style.BRIGHT + "WARNING: " + message + Style.RESET_ALL)
+    print("[DEBUG load_game_with_player_transfer] Starting to load the game with player transfer.")
+    print(f"[DEBUG load_game_with_player_transfer] Before loading: player.current_room = {player.current_room}")
 
-# # Initialize colorama
-#     init()
-#     found_secret_room()
-#     picked_up_item("A peculiar item")
-#     critical_warning("WARNING")
+    # Store the current player's data
+    current_player_data = player.to_dict()
+    print(f"[DEBUG load_game_with_player_transfer] Current player data saved: {current_player_data}")
 
-###
+    # Attempt to load the game state from a file using SaveLoadManager
+    loaded_turn_manager = SaveLoadManager.load_from_file(player)
 
-# Example of defining a style (not necessary for simple colors):
-# from prompt_toolkit.styles import Style
-# my_style = Style.from_dict({
-#     'green-text': '#00aa00',  # Green
-#     'red-text': '#ff0000 bold',  # Red and bold
-# })
-# print_formatted_text(HTML('<green-text>This is green text.</green-text>'), style=my_style)
+    # Check if the loading was successful
+    if loaded_turn_manager:
+        print("[DEBUG load_game_with_player_transfer] Successfully loaded TurnManager from file.")
+
+        # --- Update the global turn_manager with the loaded data ---
+        print("[DEBUG load_game_with_player_transfer] Updating turn_manager with loaded data.")
+        # Replace the current room_manager with the loaded one
+        turn_manager.room_manager = loaded_turn_manager.room_manager
+        # Restore the active_room_lookup from the loaded data
+        turn_manager.room_manager.active_room_lookup = loaded_turn_manager.room_manager.active_room_lookup
+        # Restore the current turn from the loaded data
+        turn_manager.current_turn = loaded_turn_manager.current_turn
+        # Restore the movement_manager from the loaded data
+        turn_manager.movement_manager = loaded_turn_manager.movement_manager
+
+        # --- Update the movement_manager with the loaded data ---
+        print("[DEBUG load_game_with_player_transfer] Updating movement_manager with the loaded TurnManager's room_manager.")
+        # Set the movement_manager's room_manager to the loaded room_manager
+        movement_manager.room_manager = turn_manager.room_manager
+        # Set the movement_manager's player to the current player
+        movement_manager.player = player
+
+        # --- Retrieve the room manager ---
+        # Get a reference to the room_manager from the turn_manager
+        room_manager = turn_manager.room_manager
+        # Update the room_manager attribute of all rooms
+        for room in room_manager.game_rooms:
+            # Set the room_manager attribute of each room to the current room_manager
+            room.room_manager = room_manager
+        # Update the room_manager attribute of all active rooms
+        for room in room_manager.active_room_lookup.values():
+            # Set the room_manager attribute of each active room to the current room_manager
+            room.room_manager = room_manager
+        print(f"[DEBUG load_game_with_player_transfer] Room manager retrieved. Total game rooms: {len(room_manager.game_rooms)}.")
+
+        # --- Find the player in the loaded data ---
+        loaded_player_data = None
+        loaded_player_room = None
+        # Iterate through all rooms in the loaded room_manager
+        for room in room_manager.game_rooms:
+            print(f"[DEBUG load_game_with_player_transfer] Checking room: {room.room_id} for player.")
+            # Iterate through all combatants in the current room
+            for combatant in room.combatants:
+                # Check if the current combatant is the player
+                if combatant.id.startswith("player"):
+                    print(f"[DEBUG load_game_with_player_transfer] Player with ID {combatant.id} found in room {room.room_id}.")
+                    # Store a reference to the player's data
+                    loaded_player_data = combatant
+                    loaded_player_room = room
+                    print(f"Loaded Player data: {loaded_player_data}")
+                    break
+            # If the player was found, exit the outer loop
+            if loaded_player_data:
+                break
+
+        # --- Transfer the current player's data to the loaded player ---
+        if loaded_player_data:
+            # Remove the loaded player from the loaded room
+            loaded_player_room.remove_combatant_by_id(loaded_player_data.id)
+
+            # Update the loaded player's attributes with the current player's data
+            for key, value in current_player_data.items():
+                setattr(loaded_player_data, key, value)
+
+            # Update the current player's attributes with the loaded data
+            for key, value in vars(loaded_player_data).items():
+                setattr(player, key, value)
+
+            # Set the room_manager's player to the current player
+            room_manager.player = player
+
+            # --- Update the player_action_manager with the loaded data ---
+            print("[DEBUG load_game_with_player_transfer] Updating player_action_manager with loaded data.")
+            # Set the player_action_manager's room_manager to the loaded room_manager
+            player_action_manager.room_manager = room_manager
+            # Set the player_action_manager's player to the current player
+            player_action_manager.player = player
+
+            # Remove any duplicates and ensure proper room transition
+            if player.current_room in room_manager.room_lookup:
+                print(f"[DEBUG load_game_with_player_transfer] Transitioning player to room: {player.current_room}")
+                # Remove any existing player combatants in the player's current room
+                current_room = room_manager.room_lookup[player.current_room]
+                current_room.remove_combatant_by_id(player.id)
+                # Add the up-to-date player to the current room
+                current_room.add_combatant(player)
+            else:
+                print(f"[ERROR load_game_with_player_transfer] Room with ID '{player.current_room}' not found in room lookup!")
+
+        else:
+            print(f"[ERROR load_game_with_player_transfer] Player with ID {player.id} not found in loaded data!")
+            # If no player is found, set the player's current_room to None
+            player.current_room = None
+
+        print("[DEBUG load_game_with_player_transfer] Game loaded successfully with player transfer!")
+
+        # --- Post-load checks ---
+        print("[DEBUG load_game_with_player_transfer] Performing post-load checks...")
+        if not player.current_room:
+            print("[ERROR load_game_with_player_transfer] Player's current_room is None after loading!")
+        elif player.current_room not in room_manager.room_lookup:
+            print(f"[ERROR load_game_with_player_transfer] Player's current_room '{player.current_room}' not found in room_manager.room_lookup!")
+        else:
+            print(f"[DEBUG load_game_with_player_transfer] Player's current_room '{player.current_room}' found in room_manager.room_lookup.")
+            current_room = room_manager.room_lookup[player.current_room]
+            if player not in current_room.combatants:
+                print(f"[ERROR load_game_with_player_transfer] Player not found in their current room's combatants list!")
+            else:
+                print(f"[DEBUG load_game_with_player_transfer] Player found in their current room's combatants list.")
+        print("[DEBUG load_game_with_player_transfer] Post-load checks completed.")
+
+    else:
+        print("[ERROR load_game_with_player_transfer] Failed to load game.")
+        # If loading fails, set the player's current_room to None
+        player.current_room = None
+    
+    # --- Post-load room hostility check ---
+    if player.current_room in room_manager.room_lookup:
+        current_room = room_manager.room_lookup[player.current_room]
+        current_room.detect_hostility(turn_manager)
+        print(f"[DEBUG load_game_with_player_transfer] Post-load hostility check completed for room {current_room.room_id}.")
+    else:
+        print(f"[ERROR load_game_with_player_transfer] Could not perform post-load hostility check. Room with ID '{player.current_room}' not found in room lookup!")
+
+    # --- Manual room placement ---
+    if target_room_id:
+        if target_room_id in room_manager.room_lookup:
+            print(f"[DEBUG load_game_with_player_transfer] Manually placing player in room: {target_room_id}")
+            # Remove player from current room
+            if player.current_room in room_manager.room_lookup:
+                current_room = room_manager.room_lookup[player.current_room]
+                current_room.remove_combatant_by_id(player.id)
+            # Add player to target room
+            target_room = room_manager.room_lookup[target_room_id]
+            target_room.add_combatant(player)
+            player.current_room = target_room_id
+            print(f"[DEBUG load_game_with_player_transfer] Player moved to room: {player.current_room}")
+        else:
+            print(f"[ERROR load_game_with_player_transfer] Target room ID '{target_room_id}' not found in room lookup!")

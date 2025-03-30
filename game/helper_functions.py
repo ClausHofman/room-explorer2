@@ -16,7 +16,7 @@ movement_manager = None
 room_manager = None
 player_action_manager = None
 start_current_player_room = None
-TURN_INTERVAL = 5
+TURN_INTERVAL = 5000
 
 
 def initialize_game():

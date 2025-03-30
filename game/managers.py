@@ -39,7 +39,7 @@ class PlayerActionManager(): # Changed
         # Display combatants
         if current_room.combatants:
             for combatant in current_room.combatants:
-                if combatant.id != self.player.id:
+                # if combatant.id != self.player.id:
                     print(f"  - {combatant.name} (ID: {combatant.id})")
                     print(f"    {combatant.describe_stats()}")
         else:
