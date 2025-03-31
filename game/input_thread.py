@@ -5,6 +5,8 @@ from prompt_toolkit.history import InMemoryHistory
 from prompt_toolkit.patch_stdout import patch_stdout
 from prompt_toolkit.completion import WordCompleter
 from game.helper_functions import CommandCompleter
+from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.keys import Keys
 from game.managers import RoomManager
 from game.shared_resources import stop_event, game_style
 from game.helper_functions import remove_creature_by_id, create_cluster_command, clear_screen, use_skill_command
@@ -14,6 +16,7 @@ DEBUG = False
 turn_manager = None
 room_manager = None
 player = None
+
 
 # stop_event = threading.Event()
 print("input_thread.py stop event:", stop_event)
@@ -127,6 +130,10 @@ def input_thread(player, movement_manager, turn_manager, player_action_manager):
 
 
     commands = {
+        "remove_room": {
+            "description": "Specify room_id to remove a room",
+            "handler": lambda: turn_manager.room_manager.remove_room_by_id(room_id_to_remove=None),
+        },
         "use_skill": {
             "description": "Use a skill",
             "handler": lambda: use_skill_command(player, turn_manager.room_manager),
@@ -218,16 +225,28 @@ def input_thread(player, movement_manager, turn_manager, player_action_manager):
     }
 
 
+    bindings = KeyBindings()
+    last_command = ""
+
+    # Key binding to clear the buffer when Down arrow is pressed
+    @bindings.add(Keys.Backspace)
+    def _(event):
+        event.app.current_buffer.text = ""
+        event.app.current_buffer.cursor_position = 0
+
     command_completer = WordCompleter([f"{cmd} " for cmd in commands.keys()], ignore_case=True)
     history = InMemoryHistory()
     command_completer = CommandCompleter(commands)
     
-    session = PromptSession(history=history, completer=command_completer)
+    session = PromptSession(history=history, completer=command_completer, key_bindings=bindings)
 
     with patch_stdout():
         while not stop_event.is_set():
             try:
-                user_input = session.prompt(">> ").strip()
+                user_input = session.prompt(">> ", default=last_command).strip()
+
+                if user_input:
+                    last_command = user_input
 
                 parts = user_input.split()
                 if not parts:

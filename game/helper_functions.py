@@ -2,7 +2,6 @@ import uuid, os
 import game.combatant_data as combatant_data
 from game.managers import TurnManager, RoomManager, MovementManager, SaveLoadManager, PlayerActionManager
 from game.shared_resources import stop_event, game_style, room_type_data
-from game.available_skills import available_skills
 from prompt_toolkit import print_formatted_text
 from prompt_toolkit.formatted_text import  FormattedText
 from pprint import pprint
@@ -61,9 +60,9 @@ def initialize_game():
         status_data=combatant_data.creature_status_data,
         level=10
     )
-    print(companion1.describe_stats())
-    companion1.level_up_skill("cure_light_wounds")  # Levels up the "cure_light_wounds" skill
-    print(companion1.describe_stats())
+    # print(companion1.describe_stats())
+    # companion1.level_up_skill("cure_light_wounds")  # Levels up the "cure_light_wounds" skill
+    # print(companion1.describe_stats())
 
     turn_manager = TurnManager(stop_event)
     room_manager = RoomManager(player=player)
@@ -86,19 +85,19 @@ def initialize_game():
     # print(f"[DEBUG initialize_game] Player base_stats: {player.base_stats}")
     # print(f"[DEBUG initialize_game] Companion base_stats: {companion1.base_stats}")
 
-    room1 = room_object.Room()
+    room1 = room_object.Room(room_type="starting_area_fixed")
     room_manager.add_room(room1)
 
-    room2 = room_object.Room()
-    room_manager.add_room(room2)
+    # room2 = room_object.Room()
+    # room_manager.add_room(room2)
 
-    room3 = room_object.Room()
-    room_manager.add_room(room3)
+    # room3 = room_object.Room()
+    # room_manager.add_room(room3)
 
-    room1.connect(room2, "north")
-    room2.connect(room1, "south")
-    room1.connect(room3, "east")
-    room3.connect(room1, "west")
+    # room1.connect(room2, "north")
+    # room2.connect(room1, "south")
+    # room1.connect(room3, "east")
+    # room3.connect(room1, "west")
 
     room1.add_combatant(player)
     room1.player_in_room=True
@@ -110,16 +109,15 @@ def initialize_game():
     # print("---------------------------------")
     # pprint(vars(room1))
 
-    room1.add_combatant(companion1)
-    room1.add_combatant(dragon1)
-    print(dragon1.describe())
+    # room1.add_combatant(companion1)
+    # room1.add_combatant(dragon1)
+    # print(dragon1.describe())
 
-    print(room_manager.room_lookup[f"{dragon1.current_room}"].room_exits)
+    # print(room_manager.room_lookup[f"{dragon1.current_room}"].room_exits)
 
-
-    room1.spawn_monsters(["dragon"])
-    room1.detect_hostility(turn_manager)
-    dragon1.combatant_manager.add_buff("strength_boost", 5, 10)
+    # room1.spawn_monsters(["dragon"])
+    # room1.detect_hostility(turn_manager)
+    # dragon1.combatant_manager.add_buff("strength_boost", 5, 10)
     # room2.spawn_monsters("dragon")
     # room2.spawn_monsters(["goblin", "wolf", "wolf", "wolf", "wolf", "rabbit"])
 
@@ -148,29 +146,29 @@ def initialize_game():
 
 
     # Retrieve room manager from the turn manager
-    room_manager = turn_manager.room_manager
+    # room_manager = turn_manager.room_manager
 
     # Retrieve movement manager from the turn manager
-    if turn_manager.movement_manager is None:
-        print_formatted_text(FormattedText([
-            ('class:debug', f"[DEBUG initialize_game] movement_manager is None. Creating a new one.\n")
-        ]), style=game_style)
-        movement_manager = MovementManager(room_manager, player)
-        turn_manager.movement_manager = movement_manager
-    else:
-        print("[DEBUG initialize_game] movement_manager found in turn_manager.")
-        movement_manager = turn_manager.movement_manager
-    print(f"[DEBUG initialize_game] Loaded movement_manager: {movement_manager}")
+    # if turn_manager.movement_manager is None:
+        # print_formatted_text(FormattedText([
+            # ('class:debug', f"[DEBUG initialize_game] movement_manager is None. Creating a new one.\n")
+        # ]), style=game_style)
+        # movement_manager = MovementManager(room_manager, player)
+        # turn_manager.movement_manager = movement_manager
+    # else:
+        # print("[DEBUG initialize_game] movement_manager found in turn_manager.")
+        # movement_manager = turn_manager.movement_manager
+    # print(f"[DEBUG initialize_game] Loaded movement_manager: {movement_manager}")
     # Set room manager attribute of the movement manager to the loaded room manager
-    movement_manager.room_manager = room_manager
+    # movement_manager.room_manager = room_manager
     # Set the player attribute of the movement manager to the loaded player
-    movement_manager.player = player
-    print(f"[DEBUG initialize_game] movement_manager.room_manager: {movement_manager.room_manager}")
-    print(f"[DEBUG initialize_game] movement_manager.player: {movement_manager.player}")
+    # movement_manager.player = player
+    # print(f"[DEBUG initialize_game] movement_manager.room_manager: {movement_manager.room_manager}")
+    # print(f"[DEBUG initialize_game] movement_manager.player: {movement_manager.player}")
 
     # Update the player's current room
     # print(f"[DEBUG initialize_game] Before updating player.current_room: {player.current_room}")
-    player.current_room = room_manager.room_lookup[player.current_room].room_id
+    # player.current_room = room_manager.room_lookup[player.current_room].room_id
     # print(f"[DEBUG initialize_game] After updating player.current_room: {player.current_room}")
 
 
@@ -725,22 +723,22 @@ def create_cluster_command(room_manager, player):
                 break
             if room_type == "custom":
                 while True:
-                    custom_room_name = input(f"Enter a name for the custom room type (it must end with '_custom', or press Enter to abort):\n").strip().lower()
+                    custom_room_name = input(f"Enter a name for the custom room type (it must end with '_custom' and be an existing room_type, or press Enter to abort):\n").strip().lower()
                     if custom_room_name == "":
                         print("Aborting cluster creation.")
                         return "Aborting cluster creation."
                     if not custom_room_name.endswith("_custom"):
-                        print("Custom room type name must end with '_custom'.")
+                        print("Custom room type name must already exist in the room_type_data dictionary.")
                         continue
-                    
+
                     room_type = custom_room_name
                     if room_type in room_type_data:
                     
-                        short_description = input("Enter a short description for the custom room type (or press Enter to abort):\n").strip()
+                        short_description = input("Enter a short description (or press Enter to abort):\n").strip()
                         if short_description == "":
                             print("Aborting cluster creation.")
                             return "Aborting cluster creation."
-                        long_description = input("Enter a long description for the custom room type (or press Enter to abort):\n").strip()
+                        long_description = input("Enter a long description (or press Enter to abort):\n").strip()
                         if long_description == "":
                             print("Aborting cluster creation.")
                             return "Aborting cluster creation."
@@ -749,7 +747,7 @@ def create_cluster_command(room_manager, player):
                             "long_description": [long_description]
                         }
                     else:
-                        print(f"Room type '{room_type}' does not exist. Please choose a different name or create a new custom room type.")
+                        print(f"Room type '{room_type}' does not exist. Please choose an existing room type that ends with '_custom.")
                         continue
                     break  # Exit the inner loop if the name is unique
                 break # Exit the outer loop if custom was chosen

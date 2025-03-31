@@ -487,7 +487,7 @@ class RoomManager:
                     room_process_count[room_id] += 1
 
                     # Increase room_process_count if map is behaving funnily, it might not show rooms in some scenarios and more processing is needed
-                    if room_process_count[room_id] > 4:
+                    if room_process_count[room_id] > 5:
                         if DEBUG:
                             print(f"[DEBUG] Room {room_id} processed {room_process_count[room_id]} times, skipping.")
                         continue
@@ -559,6 +559,66 @@ class RoomManager:
                     row_string += str(cell)  # In case it is already an ANSI object like "X"
             print_formatted_text(ANSI(row_string))
 
+    def remove_room_by_id(self, room_id_to_remove):
+        """
+        Removes a room from the game, ensuring all references are cleaned up.
+        Prompts the user for a room ID to remove.
+
+        Args:
+            room_manager (RoomManager): The RoomManager instance.
+        """
+        while True:
+            if room_id_to_remove is None:
+                room_id_to_remove = input("Enter the ID of the room to remove (or press Enter to abort): ").strip()
+            if not room_id_to_remove:
+                print("Aborting room removal.")
+                return
+
+            if room_id_to_remove in self.room_lookup:
+                break
+            else:
+                print(f"Room with ID '{room_id_to_remove}' not found. Please try again.")
+                room_id_to_remove = None
+                continue
+
+        room_to_remove = self.room_lookup[room_id_to_remove]
+
+        print(f"[DEBUG] Removing room: {room_to_remove.room_id} ({room_to_remove.room_name})")
+
+        # 1. Remove the room from room_lookup
+        del self.room_lookup[room_id_to_remove]
+        print(f"[DEBUG] Removed room '{room_id_to_remove}' from room_lookup.")
+
+        # 2. Remove the room from game_rooms
+        self.game_rooms.remove(room_to_remove)
+        print(f"[DEBUG] Removed room '{room_id_to_remove}' from game_rooms.")
+
+        # 3. Remove the room from active_room_lookup if it's there
+        if room_id_to_remove in self.active_room_lookup:
+            del self.active_room_lookup[room_id_to_remove]
+            print(f"[DEBUG] Removed room '{room_id_to_remove}' from active_room_lookup.")
+
+        # 4. Clean up references in other rooms' room_exits
+        for room in self.game_rooms:
+            exits_to_remove = []
+            for direction, connected_room_id in room.room_exits.items():
+                if isinstance(connected_room_id, dict):
+                    if connected_room_id.get("target_room") == room_to_remove:
+                        exits_to_remove.append(direction)
+                elif connected_room_id == room_id_to_remove:
+                    exits_to_remove.append(direction)
+
+            for direction in exits_to_remove:
+                del room.room_exits[direction]
+                print(f"[DEBUG] Removed exit '{direction}' from room '{room.room_id}' that pointed to '{room_id_to_remove}'.")
+
+        # 5. Clean up combatants' current_room if they were in the removed room
+        for combatant in room_to_remove.combatants:
+            combatant.current_room = None
+            print(f"[DEBUG] Removed current_room reference for combatant '{combatant.id}' that was in room '{room_id_to_remove}'.")
+
+        print(f"[DEBUG] Successfully removed room '{room_id_to_remove}' and cleaned up all references.")
+
 
 class MovementManager(PlayerActionManager, RoomManager):
     def __init__(self, room_manager=None, player=None, companion=None, creature=None):
@@ -599,7 +659,7 @@ class MovementManager(PlayerActionManager, RoomManager):
         player.current_room = target_room.room_id
 
         # Display map when moving
-        self.room_manager.generate_map(size=7, search_depth=40)
+        self.room_manager.generate_map(size=13, search_depth=40)
 
         # Show map
         # start_time = perf_counter()
