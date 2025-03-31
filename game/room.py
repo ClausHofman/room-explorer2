@@ -175,18 +175,18 @@ class Room:
 
 
     def advance_combat_round(self, current_turn):
-        print(f"[DEBUG advance_combat_round] Starting advance_combat_round in Room {self.room_id}!") # Added debug statement
+        # print(f"[DEBUG advance_combat_round] Starting advance_combat_round in Room {self.room_id}!") # Added debug statement
         if not self.in_combat:
             return  # Skip if not in combat
 
         # Only advance if we're on the right turn
         if current_turn > self.combat_start_turn + self.combat_rounds:
             self.combat_rounds += 1  # Increment the round number
-            print(f"[DEBUG advance_combat_round] Starting Combat Round {self.combat_rounds} in Room {self.room_id}!")
+            # print(f"[DEBUG advance_combat_round] Starting Combat Round {self.combat_rounds} in Room {self.room_id}!")
 
             # Process active combatants
             active_combatants = [c for c in self.combatants if c.is_alive() and c.grudge_list] # Changed this line
-            print(f"[DEBUG advance_combat_round] Active combatants: {[c.name for c in active_combatants]}")
+            # print(f"[DEBUG advance_combat_round] Active combatants: {[c.name for c in active_combatants]}")
 
             # Check hostility
             if not self.has_hostility():
@@ -200,64 +200,48 @@ class Room:
             for combatant in active_combatants:
                 initiative = combatant._calculate_combat_initiative()
                 initiative_order.append((combatant, initiative))
-                print(f"[DEBUG advance_combat_round] {combatant.name} (ID: {combatant.id}) initiative: {initiative}")
+                # print(f"[DEBUG advance_combat_round] {combatant.name} (ID: {combatant.id}) initiative: {initiative}")
 
             # Sort combatants by initiative (highest first)
             initiative_order.sort(key=lambda x: x[1], reverse=True)
 
             # Process each combatant's turn in initiative order
             for combatant, initiative in initiative_order:
-                print(f"[DEBUG advance_combat_round] Processing turn for {combatant.name} (ID: {combatant.id})") # Added debug statement
+                # print(f"[DEBUG advance_combat_round] Processing turn for {combatant.name} (ID: {combatant.id})") # Added debug statement
                 # Start of turn effects
                 combatant.update_effects_start_of_turn()
 
-                # Skill usage decision, handle ai using healing first
-                skill_used = False
+                # Skill usage decision
                 if combatant.monster_type != "player":
                     skill_name = combatant.select_ai_skill(None)
                     if skill_name:
-                        if skill_name == "cure_light_wounds":
-                            target = combatant
+                        # Determine the target based on the skill category
+                        if skill_name in combatant.skills.get("restoration_magic", {}) or skill_name in combatant.skills.get("defensive_magic", {}):
+                            target = combatant  # Self-target for healing and defensive magic
                         else:
                             target = self.select_target(combatant)
-                            if target is None:
-                                skill_used = False
-                                print(f"[DEBUG advance_combat_round] No target found for {combatant.name}, using default attack.")
-                                if combatant.can_use_skill("attack"):
-                                    target = self.select_target(combatant) # Select target for default attack
-                                    if target is not None:
-                                        combatant.use_skill("attack", target)
-                                        skill_used = True
-                                    else:
-                                        print(f"[DEBUG advance_combat_round] {combatant.name} (ID: {combatant.id}) does not have the attack skill or no target found.")
-                                else:
-                                    print(f"[DEBUG advance_combat_round] {combatant.name} failed to use default attack!")
-                                continue
-                        combatant.use_skill(skill_name, target)
-                        skill_used = True
+
+                        if target is not None:
+                            combatant.use_skill(skill_name, target)
+                    else:
+                        # No skill selected, use default attack
+                        target = self.select_target(combatant)
+                        if target is not None and combatant.can_use_skill("attack"):
+                            combatant.use_skill("attack", target)
+                        else:
+                            print(f"[DEBUG advance_combat_round] {combatant.name} (ID: {combatant.id}) does not have the attack skill or no target found.")
 
                 elif combatant.monster_type == "player":
                     target = self.select_target(combatant)
                     if target is not None: # Check if target exists
                         if combatant.can_use_skill("slash"):
                             combatant.use_skill("slash", target)
-                            skill_used = True
                         elif combatant.can_use_skill("double_slash"):
                             combatant.use_skill("double_slash", target)
-                            skill_used = True
                         elif combatant.can_use_skill("attack"):
                             combatant.use_skill("attack", target)
-                            skill_used = True
                     else:
                         print(f"[DEBUG advance_combat_round] No target found for player, skipping skill usage.")
-
-                if not skill_used:
-                    print(f"DEBUG A skill was not used, using default attack for {combatant.name}")
-                    target = self.select_target(combatant)
-                    if target is not None and combatant.can_use_skill("attack"):
-                        combatant.use_skill("attack", target)
-                    else:
-                        print(f"[DEBUG advance_combat_round] {combatant.name} (ID: {combatant.id}) does not have the attack skill or no target found.")
 
                 # End of turn effects
                 print(f"[DEBUG advance_combat_round] Updating end of turn effects for {combatant.name} (ID: {combatant.id})")
@@ -344,7 +328,7 @@ class Room:
 
 
     def has_hostility(self): # TODO: this might need some looking into
-        print("[DEBUG has_hostility] Checking for hostility among combatants...")
+        # print("[DEBUG has_hostility] Checking for hostility among combatants...")
         for combatant in self.combatants:
             # Skip dead combatants
             if not combatant.is_alive():
@@ -352,26 +336,26 @@ class Room:
                 continue
 
             # Debug: Print combatant details
-            print(f"[DEBUG has_hostility] Combatant: {combatant.name} (ID: {combatant.id}), Alive: {combatant.is_alive()}, Grudge List: {combatant.grudge_list}")
+            # print(f"[DEBUG has_hostility] Combatant: {combatant.name} (ID: {combatant.id}), Alive: {combatant.is_alive()}, Grudge List: {combatant.grudge_list}")
             
             if combatant.grudge_list:  # Check if grudge list exists and is non-empty
                 for target_id in combatant.grudge_list:
                     # Debug: Print the target ID being checked
-                    print(f"[DEBUG has_hostility] {combatant.name} is hostile toward {target_id}. Checking if target is alive...")
+                    # print(f"[DEBUG has_hostility] {combatant.name} is hostile toward {target_id}. Checking if target is alive...")
                     
                     # Find the target in the room's combatants
                     target = next((c for c in self.combatants if c.id == target_id and c.is_alive()), None)
                     
                     if target:
                         # Debug: Print details of the alive target
-                        print(f"[DEBUG has_hostility] Hostility detected! {combatant.name} has a valid target: {target.name} (ID: {target.id}, Health: {target.stats['health']})")
+                        # print(f"[DEBUG has_hostility] Hostility detected! {combatant.name} has a valid target: {target.name} (ID: {target.id}, Health: {target.stats['health']})")
                         return True
                     else:
                         # Debug: The target is either not found or not alive
                         print(f"[DEBUG has_hostility] Target with ID {target_id} is not alive or not found.")
 
         # Debug: No hostility detected
-        print("[DEBUG has_hostility] No hostility detected. All grudges are either resolved or targets are dead.")
+        # print("[DEBUG has_hostility] No hostility detected. All grudges are either resolved or targets are dead.")
         return False
 
     def update_grudges(self, new_combatant):

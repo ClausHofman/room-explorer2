@@ -16,7 +16,7 @@ movement_manager = None
 room_manager = None
 player_action_manager = None
 start_current_player_room = None
-TURN_INTERVAL = 5000
+TURN_INTERVAL = 2
 
 
 def initialize_game():
@@ -100,8 +100,13 @@ def initialize_game():
     # room3.connect(room1, "west")
 
     room1.add_combatant(player)
-    room1.player_in_room=True
+    room1.add_combatant(dragon1)
+    print(dragon1.describe_stats())
+    # room1.add_combatant(companion1)
     
+    room1.player_in_room=True
+    room1.detect_hostility(turn_manager)
+
     # for id, exits in room_manager.room_lookup.items():
     #     print(f"Room id: {id}, exits: {exits.room_exits}")
 
@@ -110,7 +115,6 @@ def initialize_game():
     # pprint(vars(room1))
 
     # room1.add_combatant(companion1)
-    # room1.add_combatant(dragon1)
     # print(dragon1.describe())
 
     # print(room_manager.room_lookup[f"{dragon1.current_room}"].room_exits)
@@ -217,8 +221,6 @@ def create_companion(creature_type, companion_data, creature_traits, status_data
         "willpower": companion_info["willpower"],
         "constitution": companion_info["constitution"],
         "health_per_level": companion_info.get("health_per_level", 0),
-        "attack_per_level": companion_info.get("attack_per_level", 0),
-        "defense_per_level": companion_info.get("defense_per_level", 0),
         "health_per_constitution": companion_info.get("health_per_constitution", 0),
         "damage_per_strength": companion_info.get("damage_per_strength", 0),
         "spell_points_per_intelligence": companion_info.get("spell_points_per_intelligence", 0),
@@ -287,8 +289,6 @@ def create_player(creature_type, player_data, creature_traits, status_data, leve
         "willpower": player_info["willpower"],
         "constitution": player_info["constitution"],
         "health_per_level": player_info.get("health_per_level", 0),
-        "attack_per_level": player_info.get("attack_per_level", 0),
-        "defense_per_level": player_info.get("defense_per_level", 0),
         "health_per_constitution": player_info.get("health_per_constitution", 0),
         "damage_per_strength": player_info.get("damage_per_strength", 0),
         "spell_points_per_intelligence": player_info.get("spell_points_per_intelligence", 0),
@@ -345,8 +345,6 @@ def create_creature(creature_type, creature_data, creature_traits, status_data, 
         "willpower": creature_info["willpower"],
         "constitution": creature_info["constitution"],
         "health_per_level": creature_info.get("health_per_level", 0),
-        "attack_per_level": creature_info.get("attack_per_level", 0),
-        "defense_per_level": creature_info.get("defense_per_level", 0),
         "health_per_constitution": creature_info.get("health_per_constitution", 0),
         "damage_per_strength": creature_info.get("damage_per_strength", 0),
         "spell_points_per_intelligence": creature_info.get("spell_points_per_intelligence", 0),

@@ -18,10 +18,13 @@ class Combatant:
             "passive_offense": {},
             "general": {},
             "restoration_magic": {},
+            "defensive_magic": {},
             "effects": {}
         }
         self.effects = []
         self.stats = self._calculate_stats()
+        self._max_health = self._calculate_stats()["health"]
+        self._cached_stats = self._calculate_stats()
         
 
 
@@ -65,8 +68,6 @@ class Combatant:
                     "level": data.get("level", 1),
                     "health_per_level": data.get("health_per_level", 0),
                     "spell_points_per_level": data.get("spell_points_per_level", 0),
-                    "attack_per_level": data.get("attack_per_level", 0),
-                    "defense_per_level": data.get("defense_per_level", 0),
                     "health_per_constitution": data.get("health_per_constitution", 0),
                     "damage_per_strength": data.get("damage_per_strength", 0),
                     "spell_points_per_intelligence": data.get("spell_points_per_intelligence", 0),
@@ -94,6 +95,11 @@ class Combatant:
         
         return instance
 
+    def _update_cached_stats(self):
+        cached_stats = self._calculate_stats()
+        self._cached_stats = cached_stats
+        self._max_health = cached_stats["health"]
+
     def select_ai_skill(self, target):
         """
         Selects a skill for the AI to use based on its health, skills, and aggression.
@@ -106,9 +112,30 @@ class Combatant:
         """
         import random
 
+        # Check if the AI should prioritize defensive magic
+        if self.stats["spell_points"] > self._cached_stats["spell_points"] * 0.8 or self.stats["health"] < self._cached_stats["health"] * 0.8:
+            # Check for available defensive magic skills
+            available_defensive_skills = [
+                skill_name
+                for skill_name in self.skills.get("defensive_magic", {})
+                if self.can_use_skill(skill_name)
+            ]
+            if available_defensive_skills:
+                # TODO: The check if the current spell is active doesn't seem to be working and the combatant will use the spell even when there still should be duration left, but I'll have to double check this
+                # Check if any of the defensive skills are already active
+                for skill_name in available_defensive_skills:
+                    skill_data = self.skills["defensive_magic"][skill_name]
+                    if "effects" in skill_data:
+                        for effect_name in skill_data["effects"]:
+                            if not any(effect.name == effect_name for effect in self.effects):
+                                return skill_name  # Use the skill if its effect is not active
+                # If all defensive skills are active, do not use any defensive skill
+                print(f"[DEBUG select_ai_skill] All defensive skills are active for {self.name}, skipping defensive skill usage.")
+
         # Determine the needed skill category
         needed_category = None
-        if self.stats["health"] < self.base_stats["health"] * 0.6:
+        # max_health = self._cached_stats["max_health"]
+        if self.stats["health"] < self._max_health * 0.6:
             needed_category = "restoration_magic"
 
         # If no specific category is needed, default to an offensive category
@@ -155,6 +182,7 @@ class Combatant:
 
         skill_data["level"] += 1
         print(f"{self.name}'s skill {skill_name} has leveled up to level {skill_data['level']}!")
+        self._update_cached_stats()
         return True
 
     def _calculate_stats(self):
@@ -175,10 +203,6 @@ class Combatant:
         # Apply level-based scaling
         if "health_per_level" in self.base_stats:
             stats["health"] += self.base_stats["health_per_level"] * (self.level - 1)
-        if "attack_per_level" in self.base_stats:
-            stats["attack"] += self.base_stats["attack_per_level"] * (self.level - 1)
-        if "defense_per_level" in self.base_stats:
-            stats["defense"] += self.base_stats["defense_per_level"] * (self.level - 1)
         if "spell_points_per_level" in self.base_stats:
             stats["spell_points"] += self.base_stats["spell_points_per_level"] * (self.level - 1)
 
@@ -198,18 +222,17 @@ class Combatant:
     def describe_stats(self):
         """Returns a string describing the combatant's stats and skills."""
         stats_descriptions = [
-            f"- health: {self.stats['health']}",
-            f"- attack: {self.stats['attack']}",
-            f"- defense: {self.stats['defense']}",
-            f"- strength: {self.stats['strength']}",
-            f"- dexterity: {self.stats['dexterity']}",
-            f"- intelligence: {self.stats['intelligence']}",
-            f"- wisdom: {self.stats['wisdom']}",
-            f"- willpower: {self.stats['willpower']}",
-            f"- constitution: {self.stats['constitution']}",
-            f"- spell_points: {self.stats['spell_points']}"
+            f"- health: {self._cached_stats['health']}",
+            f"- attack: {self._cached_stats['attack']}",
+            f"- defense: {self._cached_stats['defense']}",
+            f"- strength: {self._cached_stats['strength']}",
+            f"- dexterity: {self._cached_stats['dexterity']}",
+            f"- intelligence: {self._cached_stats['intelligence']}",
+            f"- wisdom: {self._cached_stats['wisdom']}",
+            f"- willpower: {self._cached_stats['willpower']}",
+            f"- constitution: {self._cached_stats['constitution']}",
+            f"- spell_points: {self._cached_stats['spell_points']}"
         ]
-        print(f"[DEBUG describe_stats] {self.name} stats: {self.stats}")
 
         # Describe skills
         skill_descriptions = []
@@ -229,7 +252,7 @@ class Combatant:
         )
 
     def is_alive(self):
-            return self.stats["health"] > 0
+            return self._cached_stats["health"] > 0
 
     def add_to_grudge_list(self, attacker_id):
         if attacker_id not in self.grudge_list:
@@ -250,6 +273,7 @@ class Combatant:
             skill_data_with_level["cooldown"] = skill_data["cooldown"]
         
         self.skills[skill_category][skill_name] = skill_data_with_level
+        self._update_cached_stats()
 
     def add_passive_skill(self, skill_category, skill_name, skill_data, initial_level=1):
         """Adds a passive skill to the combatant's repertoire under a specific category."""
@@ -261,6 +285,7 @@ class Combatant:
         skill_data_with_level["level"] = initial_level
         
         self.skills[skill_category][skill_name] = skill_data_with_level
+        self._update_cached_stats()
 
     def can_use_skill(self, skill_name):
         """Checks if a skill is available for use."""
@@ -289,21 +314,32 @@ class Combatant:
             return False
 
         print(f"{self.name} uses {skill_name} on {target.name}!")
+        if skill_name == "magic_shield":
+            print(f"DEBUG CAST SPELL: {self.name} casts a magic shield on {target.name}!")
 
-        healing_or_damage = self._calculate_skill_damage(skill_data)
-
-        if "base_damage" in skill_data and healing_or_damage > 0: # Check if it's a damaging skill
+        if "base_damage" in skill_data: # Check if it's a damaging skill
             print(f"[DEBUG] {self.name} (ID: {self.id}) is using {skill_name} on {target.name} (ID: {target.id})")
             print(f"[DEBUG] {skill_name} base damage: {skill_data.get('base_damage', 0)}")
             if skill_data.get("stat_scaling"):
                 print(f"[DEBUG] {skill_name} scaling stat: {skill_data.get('stat_scaling')}, scaling value: {self.stats.get(skill_data.get('stat_scaling'))}")
             if skill_data.get("flat_stat_scaling"):
                 print(f"[DEBUG] {skill_name} flat scaling stat: {skill_data.get('flat_stat_scaling')}, scaling value: {self.stats.get(skill_data.get('flat_stat_scaling'))}")
-            print(f"[DEBUG] {skill_name} calculated damage: {healing_or_damage}")
-            target.take_damage(healing_or_damage)
+            target.take_damage(skill_data.get("base_damage", 0), "physical", self, skill_data)
 
-        elif "base_heal" in skill_data and healing_or_damage > 0: # Check if it's a healing skill
-            target.heal(healing_or_damage)
+        elif "base_heal" in skill_data: # Check if it's a healing skill
+            base_heal = skill_data.get("base_heal", 0)
+            if "stat_scaling" in skill_data:
+                scaling_stat = skill_data["stat_scaling"]
+                if scaling_stat in self.stats:
+                    scaling_value = self.stats[scaling_stat]
+                    base_heal = int(base_heal * (1 + (scaling_value / 10)))
+            if "level_scaling_factor" in skill_data:
+                level_scaling_factor = skill_data["level_scaling_factor"]
+                base_heal = int(base_heal * (1 + (self.level * level_scaling_factor)))
+            if "level" in skill_data:
+                skill_level = skill_data["level"]
+                base_heal = int(base_heal * (1 + (skill_level / 10)))
+            target.heal(base_heal)
 
         if "effects" in skill_data:
             for effect_name in skill_data["effects"]:
@@ -314,53 +350,89 @@ class Combatant:
 
         return True
 
-    def _calculate_skill_damage(self, skill_data):
-        """Calculates the damage or healing of a skill based on its scaling."""
-        base_damage = skill_data.get("base_damage", 0)
-        base_heal = skill_data.get("base_heal", 0)
-        stat_scaling = skill_data.get("stat_scaling")
-        level_scaling_factor = skill_data.get("level_scaling_factor", 0)
-        skill_level = skill_data.get("level", 1)
-        flat_stat_scaling = skill_data.get("flat_stat_scaling")
-        flat_scaling_value = skill_data.get("flat_scaling_value", 0)
-        combined_stat_scaling = skill_data.get("combined_stat_scaling")
+    def _calculate_damage(self, damage, damage_type, attacker=None, skill_data=None):
+        """
+        Calculates the final damage after applying various modifiers.
 
-        healing_or_damage = 0
+        Args:
+            damage (int): The base damage value.
+            damage_type (str): The type of damage (e.g., "physical", "magical", "fire").
+            attacker (Combatant): The combatant dealing the damage (if applicable).
+            skill_data (dict): Data about the skill used (if applicable).
 
-        if base_heal > 0: # Healing skill
-            if stat_scaling:
-                scaling_value = self.stats[stat_scaling]
-                healing_or_damage = int(base_heal * (1 + (scaling_value / 10)) * (1 + (self.level * level_scaling_factor)) * (1 + (skill_level / 10)))
-            else:
-                healing_or_damage = base_heal
-        elif combined_stat_scaling:
-            combined_scaling_total = 0
-            for stat, weight in combined_stat_scaling:
-                if stat in self.stats:
-                    combined_scaling_total += self.stats[stat] * weight
-                elif stat == "level":
-                    combined_scaling_total += skill_level * weight
-                else:
-                    print(f"Warning: Combined scaling stat '{stat}' not found in combatant's stats.")
-            healing_or_damage = int(combined_scaling_total * (1 + (self.level * level_scaling_factor)) * (1 + (skill_level / 10)))
-        elif flat_stat_scaling:
-            if flat_stat_scaling in self.stats:
-                flat_scaling_stat_value = self.stats[flat_stat_scaling]
-                healing_or_damage = int(flat_scaling_stat_value * flat_scaling_value)
-            else:
-                print(f"Warning: Flat scaling stat '{flat_stat_scaling}' not found in combatant's stats.")
-                healing_or_damage = 0
-        elif stat_scaling:
-            if stat_scaling in self.stats:
-                scaling_value = self.stats[stat_scaling]
-                healing_or_damage = int(base_damage * (1 + (scaling_value / 10)) * (1 + (self.level * level_scaling_factor)) * (1 + (skill_level / 10)))
-            else:
-                print(f"Warning: Scaling stat '{stat_scaling}' not found in combatant's stats.")
-                healing_or_damage = base_damage
-        else:
-            healing_or_damage = base_damage
+        Returns:
+            int: The final calculated damage.
+        """
+        final_damage = damage
 
-        return healing_or_damage
+        # --- Damage Rules ---
+
+        # 1. Skill-Based Scaling (if applicable)
+        if skill_data:
+            if "stat_scaling" in skill_data:
+                scaling_stat = skill_data["stat_scaling"]
+                if scaling_stat in attacker.stats:
+                    scaling_value = attacker.stats[scaling_stat]
+                    final_damage = int(final_damage * (1 + (scaling_value / 10)))
+            if "level_scaling_factor" in skill_data:
+                level_scaling_factor = skill_data["level_scaling_factor"]
+                final_damage = int(final_damage * (1 + (attacker.level * level_scaling_factor)))
+            if "level" in skill_data:
+                skill_level = skill_data["level"]
+                final_damage = int(final_damage * (1 + (skill_level / 10)))
+            if "flat_stat_scaling" in skill_data:
+                flat_stat_scaling = skill_data["flat_stat_scaling"]
+                if flat_stat_scaling in attacker.stats:
+                    flat_scaling_stat_value = attacker.stats[flat_stat_scaling]
+                    flat_scaling_value = skill_data.get("flat_scaling_value", 0)
+                    final_damage = int(flat_scaling_stat_value * flat_scaling_value)
+            if "combined_stat_scaling" in skill_data:
+                combined_scaling_total = 0
+                for stat, weight in skill_data["combined_stat_scaling"]:
+                    if stat in attacker.stats:
+                        combined_scaling_total += attacker.stats[stat] * weight
+                    elif stat == "level":
+                        combined_scaling_total += skill_level * weight
+                    else:
+                        print(f"Warning: Combined scaling stat '{stat}' not found in combatant's stats.")
+                final_damage = int(combined_scaling_total * (1 + (attacker.level * level_scaling_factor)) * (1 + (skill_level / 10)))
+
+        # 2. Defense/Resistance
+        # Example: Reduce damage based on the defender's defense stat
+        if skill_data and "base_heal" in skill_data:
+            return final_damage
+        final_damage = max(0, final_damage - self.stats["defense"])
+
+        # 3. Passive Skill Effects (e.g., damage reduction)
+        if attacker:
+            total_flat_reduction = 0
+            total_percent_reduction = 0
+            for skill_name, skill_data in self.skills["passive_defense"].items():
+                if skill_data.get("active", False):
+                    if "flat_reduction" in skill_data:
+                        total_flat_reduction += skill_data["flat_reduction"]
+                    if "percent_reduction" in skill_data:
+                        total_percent_reduction += skill_data["percent_reduction"]
+
+            # Apply percentage reduction first
+            final_damage = int(final_damage * (1 - total_percent_reduction))
+
+            # Apply flat reduction second
+            final_damage -= total_flat_reduction
+
+        # 4. Effects (e.g., buffs, debuffs)
+        # Example: Check for a "vulnerable" debuff that increases damage taken
+        for effect in self.effects:
+            if effect.name == "vulnerable":
+                final_damage = int(final_damage * (1 + effect.modifier))
+            if effect.name == "magic_shield_effect":
+                final_damage -= effect.flat_reduction
+
+
+        # Ensure damage is not negative
+        final_damage = max(0, final_damage)
+
+        return final_damage
 
     def heal(self, amount):
         """Heals the combatant for a specified amount."""
@@ -368,6 +440,7 @@ class Combatant:
         # TODO: maybe some clarification needed
         self.stats["health"] = min(self.stats["health"] + amount, max_health)
         print(f"{self.name} heals for {amount} health! Current health: {self.stats['health']}")
+        self._update_cached_stats()
 
     def _calculate_combat_initiative(self):
         """Calculates the combat initiative for this combatant."""
@@ -385,7 +458,7 @@ class Combatant:
 
         # Calculate the sum of all relevant stats
         total_stats = 0
-        for stat_name, stat_value in self.stats.items():
+        for stat_name, stat_value in self._cached_stats.items():
             if stat_name in ["strength", "dexterity", "intelligence", "wisdom", "willpower", "constitution"]:
                 total_stats += stat_value
 
@@ -409,8 +482,9 @@ class Combatant:
             effect = Effect(
                 name=effect_name,
                 duration=effect_data["duration"],
-                modifier=effect_data["modifier"],
+                modifier=effect_data.get("modifier", 0),
                 description=effect_data["description"],
+                flat_reduction=effect_data.get("flat_reduction", 0),
                 # Add other effect attributes here
             )
             target.effects.append(effect)
@@ -419,27 +493,29 @@ class Combatant:
         else:
             print(f"Effect '{effect_name}' not found.")
 
-    def take_damage(self, damage):
-        """Handles taking damage, including passive skill effects."""
-        print(f"[DEBUG take_damage] {self.name} (ID: {self.id}) is taking {damage} damage!")  # Added debug statement
-        # Apply damage reduction from passive skills
-        total_reduction = 0
-        for skill_name, skill_data in self.skills["passive_defense"].items():
-            if skill_data.get("active", False) and "reduction" in skill_data:
-                total_reduction += skill_data["reduction"]
-                print(f"{self.name} reduces damage by {skill_data['reduction']} with {skill_name}!")
+    def take_damage(self, damage, damage_type="physical", attacker=None, skill_data=None):
+        """
+        Applies damage to the combatant.
 
-        damage -= total_reduction
-        damage = max(damage, 0)  # Damage cannot be negative
+        Args:
+            damage (int): The base damage value.
+            damage_type (str): The type of damage (e.g., "physical", "magical", "fire").
+            attacker (Combatant): The combatant dealing the damage (if applicable).
+            skill_data (dict): Data about the skill used (if applicable).
+        """
+        final_damage = self._calculate_damage(damage, damage_type, attacker, skill_data)
+        print(f"[DEBUG take_damage] {self.name} (ID: {self.id}) is taking {final_damage} damage!")
 
-        # Apply damage to the combatant
-        self.stats["health"] -= damage
-        print(f"{self.name} takes {damage} damage!")
-        print(f"[DEBUG take_damage] {self.name} (ID: {self.id}) health after damage: {self.stats['health']}")  # Added debug statement
+        # Update health using cached stats
+        self._cached_stats["health"] -= final_damage
+        self.stats["health"] = self._cached_stats["health"]
+        print(f"[DEBUG take_damage] {self.name} (ID: {self.id}) health after damage: {self.stats['health']}")
+
+        print(f"DEBUG: {self.stats['health']} vs {self._max_health}")
 
         # Trigger on_damage_taken effects
         for effect in self.effects:
-            effect.damage_taken(self, damage)
+            effect.damage_taken(self, final_damage)
 
         if self.stats["health"] <= 0:
             print(f"[DEBUG] {self.name} has been defeated!")
@@ -517,8 +593,6 @@ class Player(Combatant):
             "level": data.get("level", 1),
             "health_per_level": data.get("health_per_level", 0),
             "spell_points_per_level": data.get("spell_points_per_level", 0),
-            "attack_per_level": data.get("attack_per_level", 0),
-            "defense_per_level": data.get("defense_per_level", 0),
             "health_per_constitution": data.get("health_per_constitution", 0),
             "damage_per_strength": data.get("damage_per_strength", 0),
             "spell_points_per_intelligence": data.get("spell_points_per_intelligence", 0),
@@ -599,8 +673,6 @@ class Companion(Combatant):
             "level": data.get("level", 1),
             "health_per_level": data.get("health_per_level", 0),
             "spell_points_per_level": data.get("spell_points_per_level", 0),
-            "attack_per_level": data.get("attack_per_level", 0),
-            "defense_per_level": data.get("defense_per_level", 0),
             "health_per_constitution": data.get("health_per_constitution", 0),
             "damage_per_strength": data.get("damage_per_strength", 0),
             "spell_points_per_intelligence": data.get("spell_points_per_intelligence", 0),
@@ -709,8 +781,6 @@ class Monster(Combatant):
             "level": data.get("level", 1),
             "health_per_level": data.get("health_per_level", 0),
             "spell_points_per_level": data.get("spell_points_per_level", 0),
-            "attack_per_level": data.get("attack_per_level", 0),
-            "defense_per_level": data.get("defense_per_level", 0),
             "health_per_constitution": data.get("health_per_constitution", 0),
             "damage_per_strength": data.get("damage_per_strength", 0),
             "spell_points_per_intelligence": data.get("spell_points_per_intelligence", 0),

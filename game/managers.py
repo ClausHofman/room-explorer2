@@ -827,6 +827,7 @@ class CombatantManager:
             self.buffs[buff_key] = [duration, strength]
         self.current_power += strength
         print(f"Buff '{buff_key}' added (Duration: {duration}, Strength: {strength}). Current power: {self.current_power}.")
+        self._update_cached_stats()
 
     def remove_buff(self, buff_key):
         if buff_key in self.buffs:
@@ -834,6 +835,7 @@ class CombatantManager:
             self.current_power = max(0, self.current_power - strength_to_remove)
             del self.buffs[buff_key]
             print(f"Buff '{buff_key}' removed. Current power: {self.current_power}.")
+            self._update_cached_stats()
         else:
             print(f"Buff '{buff_key}' does not exist.")
 
@@ -852,11 +854,13 @@ class CombatantManager:
         else:
             self.debuffs[debuff_key] = [duration, strength]
         print(f"Debuff '{debuff_key}' added (Duration: {duration}, Strength: {strength}).")
+        self._update_cached_stats()
 
     def remove_debuff(self, debuff_key):
         if debuff_key in self.debuffs:
             del self.debuffs[debuff_key]
             print(f"Debuff '{debuff_key}' removed.")
+            self._update_cached_stats()
         else:
             print(f"Debuff '{debuff_key}' does not exist.")
 

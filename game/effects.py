@@ -1,7 +1,7 @@
 # In game/effects.py
 
 class Effect:
-    def __init__(self, name, duration, modifier, description, on_apply=None, on_remove=None, on_turn_start=None, on_damage_taken=None, on_damage_dealt=None):
+    def __init__(self, name, duration, modifier, description, flat_reduction=0, on_apply=None, on_remove=None, on_turn_start=None, on_damage_taken=None, on_damage_dealt=None):
         self.name = name
         self.duration = duration
         self.modifier = modifier
@@ -11,6 +11,7 @@ class Effect:
         self.on_turn_start = on_turn_start
         self.on_damage_taken = on_damage_taken
         self.on_damage_dealt = on_damage_dealt
+        self.flat_reduction = flat_reduction
 
     def apply(self, target):
         """Applies the effect to the target."""
@@ -37,6 +38,14 @@ class Effect:
         if self.on_damage_dealt:
             self.on_damage_dealt(self, target, damage)
 
+    def turn_start(self, target):
+        """Called at the start of the target's turn."""
+        if self.name == "poison":
+            print(f"{target.name} takes {self.modifier} poison damage!")
+            target.take_damage(self.modifier, "poison")
+        if self.on_turn_start:
+            self.on_turn_start(self, target)
+
     def to_dict(self):
         """Converts the effect object to a dictionary for serialization."""
         return {
@@ -44,6 +53,7 @@ class Effect:
             "duration": self.duration,
             "modifier": self.modifier,
             "description": self.description,
+            "flat_reduction": self.flat_reduction,
             # We don't serialize the methods (on_apply, on_remove, etc.) for now
         }
 
@@ -55,5 +65,6 @@ class Effect:
             duration=data["duration"],
             modifier=data["modifier"],
             description=data["description"],
+            flat_reduction=data.get("flat_reduction", 0),
             # We don't deserialize the methods (on_apply, on_remove, etc.) for now
         )
