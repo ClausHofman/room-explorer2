@@ -125,12 +125,12 @@ class Combatant:
                 # Check if any of the defensive skills are already active
                 for skill_name in available_defensive_skills:
                     skill_data = self.skills["defensive_magic"][skill_name]
-                    if "effects" in skill_data:
-                        for effect_name in skill_data["effects"]:
-                            if not any(effect.name == effect_name for effect in self.effects):
-                                return skill_name  # Use the skill if its effect is not active
+                    if skill_name == "magic_shield":
+                        if not any(effect.name == "magic_shield_effect" for effect in self.effects):
+                            return skill_name  # Use the skill if its effect is not active
                 # If all defensive skills are active, do not use any defensive skill
                 print(f"[DEBUG select_ai_skill] All defensive skills are active for {self.name}, skipping defensive skill usage.")
+
 
         # Determine the needed skill category
         needed_category = None
@@ -216,7 +216,7 @@ class Combatant:
         if "defense_per_constitution" in self.base_stats:
             stats["defense"] += self.base_stats["defense_per_constitution"] * self.base_stats["constitution"]
 
-        print(f"[DEBUG _calculate_stats]   stats: {stats}")
+        # print(f"[DEBUG _calculate_stats]   stats: {stats}")
         return stats
 
     def describe_stats(self):
@@ -267,7 +267,11 @@ class Combatant:
         
         # Add the initial_level to the skill data
         skill_data_with_level = skill_data.copy()
-        skill_data_with_level["level"] = initial_level
+        # Check if the skill has a level defined in available_skills
+        if "level" in skill_data:
+            skill_data_with_level["level"] = skill_data["level"]
+        else:
+            skill_data_with_level["level"] = initial_level
         skill_data_with_level["current_cooldown"] = 0
         if "cooldown" in skill_data:
             skill_data_with_level["cooldown"] = skill_data["cooldown"]
@@ -298,6 +302,7 @@ class Combatant:
 
     def use_skill(self, skill_name, target):
         """Uses a skill on a target."""
+        from game.available_skills import available_skills
         # Find the skill in any category
         skill_data = None
         for category in self.skills:
@@ -314,10 +319,12 @@ class Combatant:
             return False
 
         print(f"{self.name} uses {skill_name} on {target.name}!")
-        if skill_name == "magic_shield":
-            print(f"DEBUG CAST SPELL: {self.name} casts a magic shield on {target.name}!")
 
-        if "base_damage" in skill_data: # Check if it's a damaging skill
+        if skill_name in available_skills["effects_skills"]:
+            print(f"DEBUG CAST SPELL: {self.name} casts a {skill_name} on {target.name}!")
+            self._apply_effect(skill_name, target)
+
+        elif "base_damage" in skill_data: # Check if it's a damaging skill
             print(f"[DEBUG] {self.name} (ID: {self.id}) is using {skill_name} on {target.name} (ID: {target.id})")
             print(f"[DEBUG] {skill_name} base damage: {skill_data.get('base_damage', 0)}")
             if skill_data.get("stat_scaling"):
@@ -326,15 +333,15 @@ class Combatant:
                 print(f"[DEBUG] {skill_name} flat scaling stat: {skill_data.get('flat_stat_scaling')}, scaling value: {self.stats.get(skill_data.get('flat_stat_scaling'))}")
             target.take_damage(skill_data.get("base_damage", 0), "physical", self, skill_data)
 
-        elif "base_heal" in skill_data: # Check if it's a healing skill
+        elif "base_heal" in skill_data:
             base_heal = skill_data.get("base_heal", 0)
-            if "stat_scaling" in skill_data:
-                scaling_stat = skill_data["stat_scaling"]
+            if "stat_scaling" in skill_data["scaling_rules"]:
+                scaling_stat = skill_data["scaling_rules"]["stat_scaling"]
                 if scaling_stat in self.stats:
                     scaling_value = self.stats[scaling_stat]
                     base_heal = int(base_heal * (1 + (scaling_value / 10)))
-            if "level_scaling_factor" in skill_data:
-                level_scaling_factor = skill_data["level_scaling_factor"]
+            if "level_scaling_factor" in skill_data["scaling_rules"]:
+                level_scaling_factor = skill_data["scaling_rules"]["level_scaling_factor"]
                 base_heal = int(base_heal * (1 + (self.level * level_scaling_factor)))
             if "level" in skill_data:
                 skill_level = skill_data["level"]
@@ -369,26 +376,26 @@ class Combatant:
 
         # 1. Skill-Based Scaling (if applicable)
         if skill_data:
-            if "stat_scaling" in skill_data:
-                scaling_stat = skill_data["stat_scaling"]
+            if "stat_scaling" in skill_data["scaling_rules"]:
+                scaling_stat = skill_data["scaling_rules"]["stat_scaling"]
                 if scaling_stat in attacker.stats:
                     scaling_value = attacker.stats[scaling_stat]
                     final_damage = int(final_damage * (1 + (scaling_value / 10)))
-            if "level_scaling_factor" in skill_data:
-                level_scaling_factor = skill_data["level_scaling_factor"]
+            if "level_scaling_factor" in skill_data["scaling_rules"]:
+                level_scaling_factor = skill_data["scaling_rules"]["level_scaling_factor"]
                 final_damage = int(final_damage * (1 + (attacker.level * level_scaling_factor)))
             if "level" in skill_data:
                 skill_level = skill_data["level"]
                 final_damage = int(final_damage * (1 + (skill_level / 10)))
-            if "flat_stat_scaling" in skill_data:
-                flat_stat_scaling = skill_data["flat_stat_scaling"]
+            if "flat_stat_scaling" in skill_data["scaling_rules"]:
+                flat_stat_scaling = skill_data["scaling_rules"]["flat_stat_scaling"]
                 if flat_stat_scaling in attacker.stats:
                     flat_scaling_stat_value = attacker.stats[flat_stat_scaling]
-                    flat_scaling_value = skill_data.get("flat_scaling_value", 0)
+                    flat_scaling_value = skill_data["scaling_rules"].get("flat_scaling_value", 0)
                     final_damage = int(flat_scaling_stat_value * flat_scaling_value)
-            if "combined_stat_scaling" in skill_data:
+            if "combined_stat_scaling" in skill_data["scaling_rules"]:
                 combined_scaling_total = 0
-                for stat, weight in skill_data["combined_stat_scaling"]:
+                for stat, weight in skill_data["scaling_rules"]["combined_stat_scaling"]:
                     if stat in attacker.stats:
                         combined_scaling_total += attacker.stats[stat] * weight
                     elif stat == "level":
@@ -425,22 +432,22 @@ class Combatant:
         for effect in self.effects:
             if effect.name == "vulnerable":
                 final_damage = int(final_damage * (1 + effect.modifier))
-            if effect.name == "magic_shield_effect":
-                final_damage -= effect.flat_reduction
-
+            elif effect.name == "magic_shield_effect":
+                final_damage = max(0, final_damage - effect.flat_reduction) # Ensure damage doesn't go below zero
 
         # Ensure damage is not negative
         final_damage = max(0, final_damage)
 
         return final_damage
 
+
     def heal(self, amount):
         """Heals the combatant for a specified amount."""
-        max_health = self._calculate_stats()["health"] # Calculate max health dynamically
-        # TODO: maybe some clarification needed
-        self.stats["health"] = min(self.stats["health"] + amount, max_health)
-        print(f"{self.name} heals for {amount} health! Current health: {self.stats['health']}")
-        self._update_cached_stats()
+        max_health = self._max_health
+        heal_amount = min(amount, max_health - self.stats["health"])
+        self.stats["health"] += heal_amount
+        self._cached_stats["health"] = self.stats["health"]
+        print(f"{self.name} heals for {heal_amount} health! Current health: {self.stats['health']}")
 
     def _calculate_combat_initiative(self):
         """Calculates the combat initiative for this combatant."""
@@ -477,21 +484,60 @@ class Combatant:
     def _apply_effect(self, effect_name, target):
         """Applies an effect to the target."""
         from game.available_skills import available_skills
-        if effect_name in available_skills["effects"]:
+        # Find the skill data for the effect
+        skill_data = None
+        for category in self.skills:
+            # Check if the effect_name (which is actually a skill name) is a skill in the current category
+            if effect_name in self.skills[category]:
+                skill_data = self.skills[category][effect_name]
+                break
+        if skill_data is None:
+            print(f"Effect '{effect_name}' not found in any skill's effects.")
+            return
+
+        if effect_name == "magic_shield":
+            # Calculate flat_reduction
+            base_flat_reduction = skill_data.get("base_flat_reduction", 0)
+            skill_level = skill_data.get("level", 1)
+            base_duration = skill_data.get("base_duration", 0)
+
+            flat_reduction = base_flat_reduction
+            for stat, weight in skill_data["scaling_rules"].get("stat_scaling", {}).items():
+                flat_reduction += int(self.stats.get(stat, 0) * weight)
+            flat_reduction += int(skill_level * skill_data["scaling_rules"].get("level_scaling_factor", 0))
+            flat_reduction += int(skill_level * skill_data["scaling_rules"].get("flat_reduction_per_level", 0))
+            duration = base_duration + (skill_level * skill_data["scaling_rules"].get("duration_per_level", 0))
+
+            # Create the effect with the calculated flat_reduction
+            effect = Effect(
+                name="magic_shield_effect",
+                duration=duration,
+                modifier=0,
+                description=skill_data["scaling_rules"]["description"],
+                flat_reduction=flat_reduction,
+                on_damage_taken=skill_data["scaling_rules"].get("on_damage_taken", None),
+                skill_level=skill_level
+            )
+            target.effects.append(effect)
+            effect.apply(target)
+            print(f"{target.name} is now protected by a magic shield with {flat_reduction} flat reduction!")
+        elif effect_name in available_skills["effects"]:
             effect_data = available_skills["effects"][effect_name]
             effect = Effect(
                 name=effect_name,
-                duration=effect_data["duration"],
+                duration=effect_data.get("duration", None),
                 modifier=effect_data.get("modifier", 0),
                 description=effect_data["description"],
                 flat_reduction=effect_data.get("flat_reduction", 0),
-                # Add other effect attributes here
+                on_damage_taken=effect_data.get("on_damage_taken", None),
+                skill_level=skill_data.get("level", 1)
             )
             target.effects.append(effect)
             effect.apply(target)
             print(f"{target.name} is now affected by {effect_name}!")
         else:
             print(f"Effect '{effect_name}' not found.")
+
 
     def take_damage(self, damage, damage_type="physical", attacker=None, skill_data=None):
         """
@@ -503,6 +549,7 @@ class Combatant:
             attacker (Combatant): The combatant dealing the damage (if applicable).
             skill_data (dict): Data about the skill used (if applicable).
         """
+
         final_damage = self._calculate_damage(damage, damage_type, attacker, skill_data)
         print(f"[DEBUG take_damage] {self.name} (ID: {self.id}) is taking {final_damage} damage!")
 
@@ -516,7 +563,7 @@ class Combatant:
         # Trigger on_damage_taken effects
         for effect in self.effects:
             effect.damage_taken(self, final_damage)
-
+        
         if self.stats["health"] <= 0:
             print(f"[DEBUG] {self.name} has been defeated!")
             self.grudge_list.clear()  # Clear grudges when defeated

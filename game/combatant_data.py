@@ -43,7 +43,7 @@ player_data = {
         "spell_points": 100,
         "attack": 50,
         "defense": 30,
-        "strength": 100,
+        "strength": 150,
         "dexterity": 10,
         "intelligence": 1,
         "wisdom": 1,

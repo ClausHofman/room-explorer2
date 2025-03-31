@@ -1,7 +1,7 @@
 # In game/effects.py
 
 class Effect:
-    def __init__(self, name, duration, modifier, description, flat_reduction=0, on_apply=None, on_remove=None, on_turn_start=None, on_damage_taken=None, on_damage_dealt=None):
+    def __init__(self, name, duration, modifier, description, flat_reduction=0, on_apply=None, on_remove=None, on_turn_start=None, on_damage_taken=None, on_damage_dealt=None, absorb_amount=None, damage_type_effectiveness=None, skill_level=None):
         self.name = name
         self.duration = duration
         self.modifier = modifier
@@ -12,16 +12,21 @@ class Effect:
         self.on_damage_taken = on_damage_taken
         self.on_damage_dealt = on_damage_dealt
         self.flat_reduction = flat_reduction
+        self.absorb_amount = absorb_amount
+        self.damage_type_effectiveness = damage_type_effectiveness
+        self.skill_level = skill_level
 
     def apply(self, target):
         """Applies the effect to the target."""
         if self.on_apply:
             self.on_apply(self, target)
+        # target._update_cached_stats()
 
     def remove(self, target):
         """Removes the effect from the target."""
         if self.on_remove:
             self.on_remove(self, target)
+        # target._update_cached_stats()
 
     def turn_start(self, target):
         """Called at the start of the target's turn."""
@@ -31,7 +36,15 @@ class Effect:
     def damage_taken(self, target, damage):
         """Called when the target takes damage."""
         if self.on_damage_taken:
-            self.on_damage_taken(self, target, damage)
+            if isinstance(self.on_damage_taken, dict):
+                for trigger_name, trigger_data in self.on_damage_taken.items():
+                    if trigger_name == "healing_on_damage_taken":
+                        heal_amount = trigger_data["level_unlocks"].get(self.skill_level, 0)  # Default to 0 if level not found
+                        if heal_amount:
+                            target.heal(heal_amount)
+                            print(f"[DEBUG healing_on_damage_trigger] {target.name} heals for {heal_amount} health due to healing_on_damage effect!")
+            elif callable(self.on_damage_taken):
+                self.on_damage_taken(self, target, damage)
 
     def damage_dealt(self, target, damage):
         """Called when the target deals damage."""
@@ -54,7 +67,10 @@ class Effect:
             "modifier": self.modifier,
             "description": self.description,
             "flat_reduction": self.flat_reduction,
-            # We don't serialize the methods (on_apply, on_remove, etc.) for now
+            "absorb_amount": self.absorb_amount,
+            "damage_type_effectiveness": self.damage_type_effectiveness,
+            "on_damage_taken": self.on_damage_taken,
+            "skill_level": self.skill_level
         }
 
     @classmethod
@@ -66,5 +82,8 @@ class Effect:
             modifier=data["modifier"],
             description=data["description"],
             flat_reduction=data.get("flat_reduction", 0),
-            # We don't deserialize the methods (on_apply, on_remove, etc.) for now
+            absorb_amount=data.get("absorb_amount", None),
+            damage_type_effectiveness=data.get("damage_type_effectiveness", None),
+            on_damage_taken=data.get("on_damage_taken", None),
+            skill_level=data.get("skill_level", None)
         )
