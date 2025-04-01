@@ -1,8 +1,9 @@
-import json, threading, copy, time, random
+import os
+import json, threading, time
+import random
 from prompt_toolkit import print_formatted_text, ANSI
 from prompt_toolkit.formatted_text import FormattedText
 from game.shared_resources import room_type_data, game_style
-import random
 
 class PlayerActionManager(): # Changed
     def __init__(self, room_manager=None, player=None):
@@ -789,98 +790,6 @@ class TurnManager:
             turn_manager.movement_manager = None
         return turn_manager
 
-
-class CombatantManager:
-    def __init__(self, traits_dict, status_effects, selected_traits=None):
-        """
-        :param traits_dict: A dictionary of all possible traits.
-        :param status_effects: A dictionary of all status effects.
-        :param selected_traits: A list of keys to select specific traits from traits_dict.
-        """
-        self.all_traits = traits_dict
-        self.selected_traits = {key: traits_dict[key] for key in (selected_traits or [])}
-        self.buffs = copy.deepcopy(status_effects.get("buffs", {}))
-        self.debuffs = copy.deepcopy(status_effects.get("debuffs", {}))
-        self.current_power = 0  # Example power tracking
-
-    # Resolves active effects based on non-zero durations
-    def get_active_effects(self, effects):
-        active_effects = [
-            f"{key} (Duration: {value[0]}, Strength: {value[1]})"
-            for key, value in effects.items()
-            if value[0] > 0  # Only include active effects with duration > 0
-        ]
-        return ", ".join(active_effects) if active_effects else "None"
-
-    # Trait-related methods
-    def describe_traits(self):
-        if not self.selected_traits:
-            return "No special traits."
-        return ", ".join([f"{key}: {value}" for key, value in self.selected_traits.items()])
-
-    # Buff-related methods
-    def add_buff(self, buff_key, duration, strength):
-        if buff_key in self.buffs:
-            self.buffs[buff_key][0] += duration
-            self.buffs[buff_key][1] += strength
-        else:
-            self.buffs[buff_key] = [duration, strength]
-        self.current_power += strength
-        print(f"Buff '{buff_key}' added (Duration: {duration}, Strength: {strength}). Current power: {self.current_power}.")
-        self._update_cached_stats()
-
-    def remove_buff(self, buff_key):
-        if buff_key in self.buffs:
-            strength_to_remove = self.buffs[buff_key][1]
-            self.current_power = max(0, self.current_power - strength_to_remove)
-            del self.buffs[buff_key]
-            print(f"Buff '{buff_key}' removed. Current power: {self.current_power}.")
-            self._update_cached_stats()
-        else:
-            print(f"Buff '{buff_key}' does not exist.")
-
-    def decrement_buff_durations(self):
-        for buff_key in list(self.buffs.keys()):
-            if self.buffs[buff_key][0] > 0:
-                self.buffs[buff_key][0] -= 1
-                if self.buffs[buff_key][0] <= 0:
-                    self.remove_buff(buff_key)
-
-    # Debuff-related methods
-    def add_debuff(self, debuff_key, duration, strength):
-        if debuff_key in self.debuffs:
-            self.debuffs[debuff_key][0] += duration
-            self.debuffs[debuff_key][1] += strength
-        else:
-            self.debuffs[debuff_key] = [duration, strength]
-        print(f"Debuff '{debuff_key}' added (Duration: {duration}, Strength: {strength}).")
-        self._update_cached_stats()
-
-    def remove_debuff(self, debuff_key):
-        if debuff_key in self.debuffs:
-            del self.debuffs[debuff_key]
-            print(f"Debuff '{debuff_key}' removed.")
-            self._update_cached_stats()
-        else:
-            print(f"Debuff '{debuff_key}' does not exist.")
-
-    def decrement_debuff_durations(self):
-        for debuff_key in list(self.debuffs.keys()):
-            if self.debuffs[debuff_key][0] > 0:
-                self.debuffs[debuff_key][0] -= 1
-                if self.debuffs[debuff_key][0] <= 0:
-                    self.remove_debuff(debuff_key)
-
-    # Describe active buffs and debuffs
-    def describe_status(self):
-        buffs_desc = self.get_active_effects(self.buffs)
-        debuffs_desc = self.get_active_effects(self.debuffs)
-        return f"Buffs: {buffs_desc}\nDebuffs: {debuffs_desc}"
-
-
-
-import json
-import os
 
 class SaveLoadManager:
     @staticmethod

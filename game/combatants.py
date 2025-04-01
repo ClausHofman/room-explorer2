@@ -22,7 +22,7 @@ class Combatant:
             "effects": {}
         }
         self.effects = []
-        self.stats = self._calculate_stats()
+        self.stats = self._calculate_stats()            
         self._max_health = self._calculate_stats()["health"]
         self._cached_stats = self._calculate_stats()
         
@@ -43,10 +43,6 @@ class Combatant:
             "current_room": self.current_room,
             "skills": self.skills,
             "grudge_list": self.grudge_list,
-            "status_effect": {
-                "buffs": self.combatant_manager.buffs if self.combatant_manager and isinstance(self.combatant_manager.buffs, dict) else {},
-                "debuffs": self.combatant_manager.debuffs if self.combatant_manager and isinstance(self.combatant_manager.debuffs, dict) else {}
-            }            
         }
 
     # Deserialization method
@@ -73,8 +69,7 @@ class Combatant:
                     "spell_points_per_intelligence": data.get("spell_points_per_intelligence", 0),
                     "defense_per_constitution": data.get("defense_per_constitution", 0)
                     }
-        print(f"[DEBUG from_dict base_stats] {data['name']} base_stats: {base_stats}")
-        status_effects = data.get("status_effect", {"buffs": {}, "debuffs": {}}) # TODO: Check this
+        # print(f"[DEBUG from_dict base_stats] {data['name']} base_stats: {base_stats}")
 
         instance = cls(
             combatant_id=data["id"],
@@ -87,7 +82,6 @@ class Combatant:
             monster_type=data.get("monster_type", None),
         )
         instance.grudge_list = data.get("grudge_list", [])
-        print(f"[DEBUG from_dict] {data['name']} base_stats: {base_stats}")
         instance.current_room = data.get("current_room", None)
         instance.stats = data.get("stats", instance.stats)
         instance.skills = data.get("skills", instance.skills)
@@ -277,7 +271,7 @@ class Combatant:
             skill_data_with_level["cooldown"] = skill_data["cooldown"]
         
         self.skills[skill_category][skill_name] = skill_data_with_level
-        self._update_cached_stats()
+        # self._update_cached_stats()
 
     def add_passive_skill(self, skill_category, skill_name, skill_data, initial_level=1):
         """Adds a passive skill to the combatant's repertoire under a specific category."""
@@ -289,7 +283,7 @@ class Combatant:
         skill_data_with_level["level"] = initial_level
         
         self.skills[skill_category][skill_name] = skill_data_with_level
-        self._update_cached_stats()
+        # self._update_cached_stats()
 
     def can_use_skill(self, skill_name):
         """Checks if a skill is available for use."""
@@ -534,7 +528,7 @@ class Combatant:
             )
             target.effects.append(effect)
             effect.apply(target)
-            print(f"{target.name} is now affected by {effect_name}!")
+            print(f"{target.name} is now affected by {effect_name} for {duration} turns!")
         else:
             print(f"Effect '{effect_name}' not found.")
 
@@ -558,7 +552,7 @@ class Combatant:
         self.stats["health"] = self._cached_stats["health"]
         print(f"[DEBUG take_damage] {self.name} (ID: {self.id}) health after damage: {self.stats['health']}")
 
-        print(f"DEBUG: {self.stats['health']} vs {self._max_health}")
+        # print(f"DEBUG: {self.stats['health']} vs {self._max_health}")
 
         # Trigger on_damage_taken effects
         for effect in self.effects:
@@ -567,7 +561,7 @@ class Combatant:
         if self.stats["health"] <= 0:
             print(f"[DEBUG] {self.name} has been defeated!")
             self.grudge_list.clear()  # Clear grudges when defeated
-            print(f"[DEBUG] Cleared grudge list for {self.name} (ID: {self.id})")
+            # print(f"[DEBUG] Cleared grudge list for {self.name} (ID: {self.id})")
         return self.stats["health"] > 0
 
     def update_effects_start_of_turn(self):
@@ -595,15 +589,9 @@ class Combatant:
 
 
 class Player(Combatant):
-    def __init__(self, combatant_id, name, base_stats, level, hates_all, hates_player_and_companions, hates, monster_type, has_traits, all_creature_traits_data, status_data, current_room=None, selected_traits=None):
+    def __init__(self, combatant_id, name, base_stats, level, hates_all, hates_player_and_companions, hates, monster_type, current_room=None):
         super().__init__(combatant_id, name, base_stats, level, hates_all, hates_player_and_companions, hates, monster_type)
-        from game.managers import CombatantManager
         self.level = level
-        self.has_traits = has_traits
-        self.combatant_manager = CombatantManager(
-            traits_dict=all_creature_traits_data,
-            status_effects=status_data["status_effect"],
-            selected_traits=selected_traits)
         self.inventory = ("inventory", [])
         self.equipment = ("equipment", {})
         self.current_room = current_room
@@ -615,9 +603,6 @@ class Player(Combatant):
             "inventory": self.inventory,
             "equipment": self.equipment,
             "current_room": self.current_room,
-            "has_traits": self.has_traits,
-            "all_creature_traits_data": self.combatant_manager.all_traits,
-            "selected_traits": self.combatant_manager.selected_traits,
             "skills": self.skills
         })
         return base
@@ -625,8 +610,6 @@ class Player(Combatant):
     # Deserialization method
     @classmethod
     def from_dict(cls, data):
-        # print(f"[DEBUG COMBATANT.PY] data in from_dict: {data}")
-
         base_stats = {
             "health": data["stats"]["health"],
             "attack": data["stats"]["attack"],
@@ -638,17 +621,6 @@ class Player(Combatant):
             "willpower": data["stats"]["willpower"],
             "constitution": data["stats"]["constitution"],
             "level": data.get("level", 1),
-            "health_per_level": data.get("health_per_level", 0),
-            "spell_points_per_level": data.get("spell_points_per_level", 0),
-            "health_per_constitution": data.get("health_per_constitution", 0),
-            "damage_per_strength": data.get("damage_per_strength", 0),
-            "spell_points_per_intelligence": data.get("spell_points_per_intelligence", 0),
-            "defense_per_constitution": data.get("defense_per_constitution", 0)
-        }
-
-        # Extract and organize status effects properly
-        status_data = {
-            "status_effect": data.get("status_effect", {"buffs": {}, "debuffs": {}})
         }
 
         # Rebuild the Player object
@@ -661,10 +633,6 @@ class Player(Combatant):
             hates_player_and_companions=data.get("hates_player_and_companions", False),
             hates=data.get("hates", []),
             monster_type=data.get("monster_type", None),
-            has_traits=data.get("has_traits", {}),
-            all_creature_traits_data=data.get("all_creature_traits_data", {}),
-            status_data=status_data,
-            selected_traits=data.get("selected_traits", None),
             current_room=data.get("current_room", None)
         )
         player.skills = data.get("skills", {})
@@ -675,15 +643,9 @@ class Player(Combatant):
 
 
 class Companion(Combatant):
-    def __init__(self, combatant_id, name, base_stats, level, hates_all, hates_player_and_companions, hates, monster_type, has_traits, all_creature_traits_data, status_data, current_room=None, selected_traits=None):
+    def __init__(self, combatant_id, name, base_stats, level, hates_all, hates_player_and_companions, hates, monster_type, current_room=None):
         super().__init__(combatant_id, name, base_stats, level, hates_all, hates_player_and_companions, hates, monster_type)
         self.level = level
-        self.has_traits = has_traits
-        from game.managers import CombatantManager
-        self.combatant_manager = CombatantManager(
-            traits_dict=all_creature_traits_data,
-            status_effects=status_data["status_effect"],
-            selected_traits=selected_traits)
         self.inventory =("inventory", [])
         self.equipment =("equipment", {})
         self.current_room = current_room
@@ -695,9 +657,6 @@ class Companion(Combatant):
             "inventory": self.inventory,
             "equipment": self.equipment,
             "current_room": self.current_room,
-            "has_traits": self.has_traits,
-            "all_creature_traits_data": self.combatant_manager.all_traits,
-            "selected_traits": self.combatant_manager.selected_traits,
             "skills": self.skills
         })
         return base
@@ -705,8 +664,6 @@ class Companion(Combatant):
     # Deserialization method
     @classmethod
     def from_dict(cls, data):
-        # print(f"[DEBUG COMBATANT.PY] data in from_dict: {data}")
-
         base_stats = {
             "health": data["stats"]["health"],
             "attack": data["stats"]["attack"],
@@ -718,19 +675,7 @@ class Companion(Combatant):
             "willpower": data["stats"]["willpower"],
             "constitution": data["stats"]["constitution"],
             "level": data.get("level", 1),
-            "health_per_level": data.get("health_per_level", 0),
-            "spell_points_per_level": data.get("spell_points_per_level", 0),
-            "health_per_constitution": data.get("health_per_constitution", 0),
-            "damage_per_strength": data.get("damage_per_strength", 0),
-            "spell_points_per_intelligence": data.get("spell_points_per_intelligence", 0),
-            "defense_per_constitution": data.get("defense_per_constitution", 0)
         }
-
-        # Extract and organize status effects properly
-        status_data = {
-            "status_effect": data.get("status_effect", {"buffs": {}, "debuffs": {}})
-        }
-
 
         companion = cls(
             combatant_id=data["id"],
@@ -741,10 +686,6 @@ class Companion(Combatant):
             hates_player_and_companions=data.get("hates_player_and_companions", False),
             hates=data.get("hates", []),
             monster_type=data.get("monster_type", None),
-            has_traits=data.get("has_traits", {}),
-            all_creature_traits_data=data.get("all_creature_traits_data", {}),
-            status_data=status_data,
-            selected_traits=data.get("selected_traits", None),
             current_room = data.get("current_room", None)
         )
         companion.skills = data.get("skills", {})
@@ -754,29 +695,56 @@ class Companion(Combatant):
 
 
 class Monster(Combatant):
-    def __init__(self, combatant_id, name, base_stats, level, hates_all, hates_player_and_companions, hates, monster_type, has_traits, all_creature_traits_data, status_data, current_room=None, selected_traits=None):
+    def __init__(self, combatant_id, name, base_stats, level, hates_all, hates_player_and_companions, hates, monster_type, current_room=None):
         """
         :param level: The level of the monster, which affects its stats and descriptions.
         """
-        # Include the 'level' argument when calling the parent constructor
-        super().__init__(combatant_id, name, base_stats, level, hates_all, hates_player_and_companions, hates, monster_type)
-        
+        super().__init__(combatant_id, name, base_stats, level, hates_all, hates_player_and_companions, hates, monster_type)        
         self.level = level
-        self.has_traits = has_traits
         self.current_room = current_room
-        
-        from game.managers import CombatantManager
-        self.combatant_manager = CombatantManager(
-            traits_dict=all_creature_traits_data,
-            status_effects=status_data["status_effect"],
-            selected_traits=selected_traits
-        )
-        self._apply_selected_traits()
-        # self.skills = {}
 
-    def _apply_selected_traits(self):
-        # Append selected traits to the monster's default traits
-        self.has_traits.update(self.combatant_manager.selected_traits)
+
+    def to_dict(self):
+            base = super().to_dict()
+            base.update({
+                "name": self.name,
+                "stats": self.stats,
+                "level": self.level,
+                "current_room": self.current_room,
+                "skills": self.skills
+            })
+            return base
+
+    @classmethod
+    def from_dict(cls, data):
+        base_stats = {
+            "health": data["stats"]["health"],
+            "attack": data["stats"]["attack"],
+            "defense": data["stats"]["defense"],
+            "strength": data["stats"]["strength"],
+            "dexterity": data["stats"]["dexterity"],
+            "intelligence": data["stats"]["intelligence"],
+            "wisdom": data["stats"]["wisdom"],
+            "willpower": data["stats"]["willpower"],
+            "constitution": data["stats"]["constitution"],
+            "level": data.get("level", 1),
+        }
+
+        monster = cls(
+            combatant_id=data["id"],
+            name=data["name"],
+            base_stats=base_stats,
+            level=data.get("level", 1),
+            hates_all=data.get("hates_all", False),
+            hates_player_and_companions=data.get("hates_player_and_companions", False),
+            hates=data.get("hates", []),
+            monster_type=data.get("monster_type", None),
+            current_room=data.get("current_room", None)
+        )
+        monster.skills = data.get("skills", {})
+        monster.stats = data.get("stats", monster._calculate_stats())
+        monster.grudge_list = data.get("grudge_list", [])
+        return monster
 
     def describe(self):
         """
@@ -790,75 +758,5 @@ class Monster(Combatant):
         )
         return (
             f"{self.name} ({self.monster_type})\n"
-            f"Stats: {stats_description}\nTraits: {self.has_traits}\n{hates_description}"
+            f"Stats: {stats_description}\n{hates_description}"
         )
-
-    def _apply_selected_traits(self):
-        self.has_traits.update(self.combatant_manager.selected_traits)
-
-    def to_dict(self):
-        base = super().to_dict()
-        base.update({
-            "name": self.name,
-            "stats": self.stats,
-            "level": self.level,
-            "has_traits": {key: value for key, value in self.has_traits.items()},
-            "current_room": self.current_room,
-            "all_creature_traits_data": self.combatant_manager.all_traits,
-            "selected_traits": self.combatant_manager.selected_traits,
-            "skills": self.skills
-        })
-        return base
-
-    # Deserialization method
-    @classmethod
-    def from_dict(cls, data):
-        # print(f"[DEBUG COMBATANT.PY] data in from_dict: {data}")
-
-        base_stats = {
-            "health": data["stats"]["health"],
-            "attack": data["stats"]["attack"],
-            "defense": data["stats"]["defense"],
-            "strength": data["stats"]["strength"],
-            "dexterity": data["stats"]["dexterity"],
-            "intelligence": data["stats"]["intelligence"],
-            "wisdom": data["stats"]["wisdom"],
-            "willpower": data["stats"]["willpower"],
-            "constitution": data["stats"]["constitution"],
-            "level": data.get("level", 1),
-            "health_per_level": data.get("health_per_level", 0),
-            "spell_points_per_level": data.get("spell_points_per_level", 0),
-            "health_per_constitution": data.get("health_per_constitution", 0),
-            "damage_per_strength": data.get("damage_per_strength", 0),
-            "spell_points_per_intelligence": data.get("spell_points_per_intelligence", 0),
-            "defense_per_constitution": data.get("defense_per_constitution", 0)
-        }
-
-        
-        # Extract and organize status effects properly
-        status_data = {
-            "status_effect": data.get("status_effect", {"buffs": {}, "debuffs": {}})
-        }
-
-        monster = cls(
-            combatant_id=data["id"],
-            name=data["name"],
-            base_stats=base_stats,
-            level=data.get("level", 1),
-            hates_all=data.get("hates_all", False),
-            hates_player_and_companions=data.get("hates_player_and_companions", False),
-            hates=data.get("hates", []),
-            monster_type=data.get("monster_type", None),
-            has_traits=data.get("has_traits", {}),
-            all_creature_traits_data=data.get("all_creature_traits_data", {}),
-            status_data=status_data,
-            selected_traits=data.get("selected_traits", None),
-            current_room=data.get("current_room", None)
-        )
-        monster.skills = data.get("skills", {})
-        monster.stats = data.get("stats", monster._calculate_stats())
-        monster.grudge_list = data.get("grudge_list", [])
-        return monster
-
-    def _apply_selected_traits(self):
-        self.has_traits.update(self.combatant_manager.selected_traits)

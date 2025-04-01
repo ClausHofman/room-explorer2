@@ -471,9 +471,6 @@ class Room:
             monster = create_creature(
                 creature_type=monster_type,
                 creature_data=combatant_data.creature_data,
-                creature_traits=combatant_data.creature_traits_data,
-                status_data=combatant_data.creature_status_data,
                 level=5
-                # selected_traits=selected_traits_for_dragon # Would need to use default traits or maybe random ones
             )
             self.add_combatant(monster)

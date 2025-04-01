@@ -14,20 +14,14 @@ class TestRoom(unittest.TestCase):
         self.player = create_player(
             creature_type="player",
             player_data=combatant_data.player_data,
-            creature_traits=combatant_data.creature_traits_data,
-            status_data=combatant_data.creature_status_data,
         )
         self.monster = create_creature(
             creature_type="dragon",
             creature_data=combatant_data.creature_data,
-            creature_traits=combatant_data.creature_traits_data,
-            status_data=combatant_data.creature_status_data,
         )
         self.companion = create_companion(
             creature_type="companion",
             companion_data=combatant_data.companion_data,
-            creature_traits=combatant_data.creature_traits_data,
-            status_data=combatant_data.creature_status_data
         )
 
     def test_room_initialization(self):

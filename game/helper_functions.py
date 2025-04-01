@@ -30,22 +30,16 @@ def initialize_game():
     
 
     # Example usage
-    selected_traits_for_dragon = ["flight", "fire_resistance"]
     dragon1 = create_creature(
         creature_type="dragon",
         creature_data=combatant_data.creature_data,
-        creature_traits=combatant_data.creature_traits_data,
-        status_data=combatant_data.creature_status_data,
         level=5,
-        selected_traits=selected_traits_for_dragon
     )
     # print(dragon1.describe_stats())
 
     player = create_player(
         creature_type="player",
         player_data=combatant_data.player_data,
-        creature_traits=combatant_data.creature_traits_data,
-        status_data=combatant_data.creature_status_data,
         level=100
     )
     # print(player.describe_stats())
@@ -56,8 +50,6 @@ def initialize_game():
     companion1 = create_companion(
         creature_type="companion",
         companion_data=combatant_data.companion_data,
-        creature_traits=combatant_data.creature_traits_data,
-        status_data=combatant_data.creature_status_data,
         level=10
     )
     # print(companion1.describe_stats())
@@ -191,16 +183,13 @@ def initialize_game():
 
 
 
-def create_companion(creature_type, companion_data, creature_traits, status_data, level, selected_traits=None):
+def create_companion(creature_type, companion_data, level):
     from game.combatants import Companion
     """
     Creates a Player object by extracting the data for the given creature type.
 
     :param creature_type: The type of the creature (e.g., "dragon").
     :param creature_data: A dictionary containing data for all creatures.
-    :param creature_traits: A dictionary containing optional traits.
-    :param status_data: A dictionary containing buffs and debuffs.
-    :param selected_traits: A list of selected traits.
     :return: A fully initialized Monster object.
     """
     if creature_type not in companion_data:
@@ -245,10 +234,6 @@ def create_companion(creature_type, companion_data, creature_traits, status_data
         hates_player_and_companions=companion_info.get("hates_player_and_companions", False),
         hates=companion_info.get("hates", []),
         monster_type=companion_info.get("monster_type", None),
-        has_traits=companion_info["has_traits"],
-        all_creature_traits_data=creature_traits,
-        status_data=status_data,
-        selected_traits=selected_traits
     )
     from game.available_skills import available_skills
 
@@ -259,16 +244,13 @@ def create_companion(creature_type, companion_data, creature_traits, status_data
     return companion
 
     
-def create_player(creature_type, player_data, creature_traits, status_data, level, selected_traits=None):
+def create_player(creature_type, player_data, level):
     from game.combatants import Player
     """
     Creates a Player object by extracting the data for the given creature type.
 
     :param creature_type: The type of the creature (e.g., "dragon").
     :param creature_data: A dictionary containing data for all creatures.
-    :param creature_traits: A dictionary containing optional traits.
-    :param status_data: A dictionary containing buffs and debuffs.
-    :param selected_traits: A list of selected traits.
     :return: A fully initialized Monster object.
     """
     if creature_type not in player_data:
@@ -312,10 +294,6 @@ def create_player(creature_type, player_data, creature_traits, status_data, leve
         hates_player_and_companions=player_info.get("hates_player_and_companions", False),
         hates=player_info.get("hates", []),
         monster_type=player_info.get("monster_type", None),
-        has_traits=player_info["has_traits"],
-        all_creature_traits_data=creature_traits,
-        status_data=status_data,
-        selected_traits=selected_traits
     )
     from game.available_skills import available_skills
 
@@ -325,7 +303,7 @@ def create_player(creature_type, player_data, creature_traits, status_data, leve
                 player.add_skill(skill_category, skill_name, available_skills[skill_category][skill_name])
     return player
 
-def create_creature(creature_type, creature_data, creature_traits, status_data, level, selected_traits=None):
+def create_creature(creature_type, creature_data, level):
     from game.combatants import Monster
 
     if creature_type not in creature_data:
@@ -366,10 +344,6 @@ def create_creature(creature_type, creature_data, creature_traits, status_data, 
         hates_player_and_companions=creature_info.get("hates_player_and_companions", False),
         hates=creature_info.get("hates", []),
         monster_type=creature_info.get("monster_type", None),
-        has_traits=creature_info["has_traits"],
-        all_creature_traits_data=creature_traits,
-        status_data=status_data,
-        selected_traits=selected_traits
     )
 
     if creature_type == "dragon":
@@ -382,8 +356,6 @@ def create_creature(creature_type, creature_data, creature_traits, status_data, 
 
     return monster  
 
-
-from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import Completer, Completion
 
 class CommandCompleter(Completer):

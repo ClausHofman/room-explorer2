@@ -31,7 +31,6 @@ companion_data = {
             "general": ["combat_initiative"],
             "restoration_magic": ["cure_light_wounds"]
         },
-        "has_traits": {}
     }
 }
 
@@ -60,9 +59,6 @@ player_data = {
         "hates_player_and_companions": False,
         "hates": [],
         "monster_type": "player",
-        "has_traits": {
-            "admin": "Mysterious admin powers"
-        },
         "skills": {
             "offensive_melee": ["poison_bite"],
             "passive_offense": ["attack"],
@@ -96,7 +92,6 @@ creature_data = {
         "hates_player_and_companions": False,
         "hates": [],
         "monster_type": "dragon",
-        "has_traits": {"fire_breath": True},
         "skills": {
             "offensive_melee": ["fireball"],
             "passive_defense": [],
@@ -134,7 +129,6 @@ creature_data = {
             "passive_offense": ["attack"],
             "general": ["combat_initiative"]
         },
-        "has_traits": {}
     },
     "wolf": {
         "id": "wolf",
@@ -160,7 +154,6 @@ creature_data = {
         "hates_player_and_companions": False,
         "hates": ["animal"],
         "monster_type": "wolf",
-        "has_traits": {},
         "skills": {
             "passive_offense": ["attack"],
             "general": ["combat_initiative"]
@@ -190,31 +183,9 @@ creature_data = {
         "hates_player_and_companions": False,
         "hates": [],
         "monster_type": "rabbit",
-        "has_traits": {},
         "skills": {
             "passive_offense": ["attack"],
             "general": ["combat_initiative"]
-        }
-    }
-}
-
-
-# Example creature_traits dictionary (optional traits)
-creature_traits_data = {
-    "flight": True,
-    "regeneration": "Moderate",
-    "fire_resistance": "High",
-    "poison_immunity": True
-}
-
-# Example creature_status_data dictionary (default status effects)
-creature_status_data = {
-    "status_effect": {
-        "buffs": {
-            "strength_boost": [0, 0]  # Default duration and effect
-        },
-        "debuffs": {
-            "poisoned": [0, 0]  # Default duration and effect
         }
     }
 }
