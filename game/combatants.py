@@ -1,3 +1,4 @@
+from pprint import pprint
 from game.effects import Effect
 
 class Combatant:
@@ -19,7 +20,6 @@ class Combatant:
             "general": {},
             "restoration_magic": {},
             "defensive_magic": {},
-            "effects": {}
         }
         self.effects = []
         self.stats = self._calculate_stats()            
@@ -43,50 +43,50 @@ class Combatant:
             "current_room": self.current_room,
             "skills": self.skills,
             "grudge_list": self.grudge_list,
+            "skill_effects": [
+                {"type": type(effect).__name__, "data": effect.to_dict()} for effect in self.effects
+            ],
         }
 
     # Deserialization method
     @classmethod
-    def from_dict(cls, data):
-        # print(f"[DEBUG COMBATANT.PY] data in from_dict: {data}")
-
+    def from_dict(cls, combatant_data):
         base_stats = {
-                    "health": data["stats"]["health"],
-                    "spell_points": data["stats"]["spell_points"],
-                    "attack": data["stats"]["attack"],
-                    "defense": data["stats"]["defense"],
-                    "strength": data["stats"]["strength"],
-                    "dexterity": data["stats"]["dexterity"],
-                    "intelligence": data["stats"]["intelligence"],
-                    "wisdom": data["stats"]["wisdom"],
-                    "willpower": data["stats"]["willpower"],
-                    "constitution": data["stats"]["constitution"],
-                    "level": data.get("level", 1),
-                    "health_per_level": data.get("health_per_level", 0),
-                    "spell_points_per_level": data.get("spell_points_per_level", 0),
-                    "health_per_constitution": data.get("health_per_constitution", 0),
-                    "damage_per_strength": data.get("damage_per_strength", 0),
-                    "spell_points_per_intelligence": data.get("spell_points_per_intelligence", 0),
-                    "defense_per_constitution": data.get("defense_per_constitution", 0)
+                    "health": combatant_data["stats"]["health"],
+                    "spell_points": combatant_data["stats"]["spell_points"],
+                    "attack": combatant_data["stats"]["attack"],
+                    "defense": combatant_data["stats"]["defense"],
+                    "strength": combatant_data["stats"]["strength"],
+                    "dexterity": combatant_data["stats"]["dexterity"],
+                    "intelligence": combatant_data["stats"]["intelligence"],
+                    "wisdom": combatant_data["stats"]["wisdom"],
+                    "willpower": combatant_data["stats"]["willpower"],
+                    "constitution": combatant_data["stats"]["constitution"],
+                    "level": combatant_data.get("level", 1),
                     }
-        # print(f"[DEBUG from_dict base_stats] {data['name']} base_stats: {base_stats}")
 
         instance = cls(
-            combatant_id=data["id"],
-            name=data["name"],
+            combatant_id=combatant_data["id"],
+            name=combatant_data["name"],
             base_stats = base_stats,
-            level=data.get("level", 1),
-            hates_all=data.get("hates_all", False),
-            hates_player_and_companions=data.get("hates_player_and_companions", False),
-            hates=data.get("hates", []),
-            monster_type=data.get("monster_type", None),
+            level=combatant_data.get("level", 1),
+            hates_all=combatant_data.get("hates_all", False),
+            hates_player_and_companions=combatant_data.get("hates_player_and_companions", False),
+            hates=combatant_data.get("hates", []),
+            monster_type=combatant_data.get("monster_type", None),
         )
-        instance.grudge_list = data.get("grudge_list", [])
-        instance.current_room = data.get("current_room", None)
-        instance.stats = data.get("stats", instance.stats)
-        instance.skills = data.get("skills", instance.skills)
-        instance.grudge_list = data.get("grudge_list", instance.grudge_list)
-        
+        instance.grudge_list = combatant_data.get("grudge_list", [])
+        instance.current_room = combatant_data.get("current_room", None)
+        instance.stats = combatant_data.get("stats", instance.stats)
+        instance.skills = combatant_data.get("skills", instance.skills)
+        instance.current_room = combatant_data.get("current_room", None)
+
+        if "skill_effects" in combatant_data:
+            instance.effects = [
+                Effect.from_dict(effect_data["data"])
+                for effect_data in combatant_data["skill_effects"]
+            ]
+
         return instance
 
     def _update_cached_stats(self):
@@ -591,10 +591,8 @@ class Combatant:
 class Player(Combatant):
     def __init__(self, combatant_id, name, base_stats, level, hates_all, hates_player_and_companions, hates, monster_type, current_room=None):
         super().__init__(combatant_id, name, base_stats, level, hates_all, hates_player_and_companions, hates, monster_type)
-        self.level = level
         self.inventory = ("inventory", [])
         self.equipment = ("equipment", {})
-        self.current_room = current_room
 
     # Serialization method
     def to_dict(self):
@@ -602,53 +600,23 @@ class Player(Combatant):
         base.update({
             "inventory": self.inventory,
             "equipment": self.equipment,
-            "current_room": self.current_room,
-            "skills": self.skills
         })
         return base
 
     # Deserialization method
     @classmethod
     def from_dict(cls, data):
-        base_stats = {
-            "health": data["stats"]["health"],
-            "attack": data["stats"]["attack"],
-            "defense": data["stats"]["defense"],
-            "strength": data["stats"]["strength"],
-            "dexterity": data["stats"]["dexterity"],
-            "intelligence": data["stats"]["intelligence"],
-            "wisdom": data["stats"]["wisdom"],
-            "willpower": data["stats"]["willpower"],
-            "constitution": data["stats"]["constitution"],
-            "level": data.get("level", 1),
-        }
-
-        # Rebuild the Player object
-        player = cls(
-            combatant_id=data["id"],
-            name=data["name"],
-            base_stats=base_stats,
-            level=data.get("level", 1),
-            hates_all=data.get("hates_all", False),
-            hates_player_and_companions=data.get("hates_player_and_companions", False),
-            hates=data.get("hates", []),
-            monster_type=data.get("monster_type", None),
-            current_room=data.get("current_room", None)
-        )
-        player.skills = data.get("skills", {})
-        player.stats = data.get("stats", player._calculate_stats())
-        player.grudge_list = data.get("grudge_list", [])
+        """Deserialize a Player object."""
+        player = super().from_dict(data)
+        player.inventory = data.get("inventory", [])
+        player.equipment = data.get("equipment", {})
         return player
-
-
 
 class Companion(Combatant):
     def __init__(self, combatant_id, name, base_stats, level, hates_all, hates_player_and_companions, hates, monster_type, current_room=None):
         super().__init__(combatant_id, name, base_stats, level, hates_all, hates_player_and_companions, hates, monster_type)
-        self.level = level
         self.inventory =("inventory", [])
         self.equipment =("equipment", {})
-        self.current_room = current_room
 
     # Serialization method
     def to_dict(self):
@@ -656,41 +624,16 @@ class Companion(Combatant):
         base.update({
             "inventory": self.inventory,
             "equipment": self.equipment,
-            "current_room": self.current_room,
-            "skills": self.skills
         })
         return base
 
     # Deserialization method
     @classmethod
     def from_dict(cls, data):
-        base_stats = {
-            "health": data["stats"]["health"],
-            "attack": data["stats"]["attack"],
-            "defense": data["stats"]["defense"],
-            "strength": data["stats"]["strength"],
-            "dexterity": data["stats"]["dexterity"],
-            "intelligence": data["stats"]["intelligence"],
-            "wisdom": data["stats"]["wisdom"],
-            "willpower": data["stats"]["willpower"],
-            "constitution": data["stats"]["constitution"],
-            "level": data.get("level", 1),
-        }
-
-        companion = cls(
-            combatant_id=data["id"],
-            name=data["name"],
-            base_stats=base_stats,
-            level=data.get("level", 1),
-            hates_all=data.get("hates_all", False),
-            hates_player_and_companions=data.get("hates_player_and_companions", False),
-            hates=data.get("hates", []),
-            monster_type=data.get("monster_type", None),
-            current_room = data.get("current_room", None)
-        )
-        companion.skills = data.get("skills", {})
-        companion.stats = data.get("stats", companion._calculate_stats())
-        companion.grudge_list = data.get("grudge_list", [])
+        """Deserialize a Companion object."""
+        companion = super().from_dict(data)
+        companion.inventory = data.get("inventory", [])
+        companion.equipment = data.get("equipment", {})
         return companion
 
 
@@ -700,50 +643,15 @@ class Monster(Combatant):
         :param level: The level of the monster, which affects its stats and descriptions.
         """
         super().__init__(combatant_id, name, base_stats, level, hates_all, hates_player_and_companions, hates, monster_type)        
-        self.level = level
-        self.current_room = current_room
-
 
     def to_dict(self):
             base = super().to_dict()
-            base.update({
-                "name": self.name,
-                "stats": self.stats,
-                "level": self.level,
-                "current_room": self.current_room,
-                "skills": self.skills
-            })
             return base
 
     @classmethod
     def from_dict(cls, data):
-        base_stats = {
-            "health": data["stats"]["health"],
-            "attack": data["stats"]["attack"],
-            "defense": data["stats"]["defense"],
-            "strength": data["stats"]["strength"],
-            "dexterity": data["stats"]["dexterity"],
-            "intelligence": data["stats"]["intelligence"],
-            "wisdom": data["stats"]["wisdom"],
-            "willpower": data["stats"]["willpower"],
-            "constitution": data["stats"]["constitution"],
-            "level": data.get("level", 1),
-        }
-
-        monster = cls(
-            combatant_id=data["id"],
-            name=data["name"],
-            base_stats=base_stats,
-            level=data.get("level", 1),
-            hates_all=data.get("hates_all", False),
-            hates_player_and_companions=data.get("hates_player_and_companions", False),
-            hates=data.get("hates", []),
-            monster_type=data.get("monster_type", None),
-            current_room=data.get("current_room", None)
-        )
-        monster.skills = data.get("skills", {})
-        monster.stats = data.get("stats", monster._calculate_stats())
-        monster.grudge_list = data.get("grudge_list", [])
+        """Deserialize a Monster object."""
+        monster = super().from_dict(data)
         return monster
 
     def describe(self):

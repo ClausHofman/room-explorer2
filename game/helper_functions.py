@@ -92,6 +92,7 @@ def initialize_game():
     # room3.connect(room1, "west")
 
     room1.add_combatant(player)
+    print(player.describe_stats())
     room1.add_combatant(dragon1)
     print(dragon1.describe_stats())
     # room1.add_combatant(companion1)
