@@ -11,6 +11,7 @@ available_skills = {
             "effects": [],
             "cooldown": 2,
             "current_cooldown": 1,
+            "damage_types": ["physical"],
             "scaling_rules": {
                 "stat_scaling": "strength",
                 "level_scaling_factor": 0.002,
@@ -24,6 +25,7 @@ available_skills = {
             "effects": [],
             "cooldown": 3,
             "current_cooldown": 0,
+            "damage_types": ["fire"],
             "scaling_rules": {
                 "stat_scaling": "intelligence",
                 "level_scaling_factor": 0.002,
@@ -81,13 +83,14 @@ available_skills = {
     "passive_offense": {
         "attack": {
             "base_damage": 0,
-            "level": 1,
+            "level": 100,
             "active": True,
             "description": "A basic attack.",
+            "damage_types": ["physical"],
             "scaling_rules": {
                 "level_scaling_factor": 0.002,
                 "flat_stat_scaling": "strength",
-                "flat_scaling_value": 1,
+                "flat_scaling_value": 0.25,
             }
         },
     },

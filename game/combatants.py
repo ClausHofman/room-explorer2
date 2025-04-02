@@ -318,14 +318,14 @@ class Combatant:
             print(f"DEBUG CAST SPELL: {self.name} casts a {skill_name} on {target.name}!")
             self._apply_effect(skill_name, target)
 
-        elif "base_damage" in skill_data: # Check if it's a damaging skill
+        elif "base_damage" in skill_data: # Changed this line
             print(f"[DEBUG] {self.name} (ID: {self.id}) is using {skill_name} on {target.name} (ID: {target.id})")
             print(f"[DEBUG] {skill_name} base damage: {skill_data.get('base_damage', 0)}")
             if skill_data.get("stat_scaling"):
                 print(f"[DEBUG] {skill_name} scaling stat: {skill_data.get('stat_scaling')}, scaling value: {self.stats.get(skill_data.get('stat_scaling'))}")
             if skill_data.get("flat_stat_scaling"):
                 print(f"[DEBUG] {skill_name} flat scaling stat: {skill_data.get('flat_stat_scaling')}, scaling value: {self.stats.get(skill_data.get('flat_stat_scaling'))}")
-            target.take_damage(skill_data.get("base_damage", 0), "physical", self, skill_data)
+            target.take_damage(skill_data.get("base_damage", 0), skill_data.get("damage_types", ["physical"]), self, skill_data)
 
         elif "base_heal" in skill_data:
             base_heal = skill_data.get("base_heal", 0)
@@ -351,42 +351,60 @@ class Combatant:
 
         return True
 
-    def _calculate_damage(self, damage, damage_type, attacker=None, skill_data=None):
+    def _calculate_damage(self, damage, damage_types, attacker=None, skill_data=None):
         """
         Calculates the final damage after applying various modifiers.
 
         Args:
             damage (int): The base damage value.
-            damage_type (str): The type of damage (e.g., "physical", "magical", "fire").
+            damage_types (list): A list of damage types (e.g., ["physical"], ["fire", "physical"]).
             attacker (Combatant): The combatant dealing the damage (if applicable).
             skill_data (dict): Data about the skill used (if applicable).
 
         Returns:
-            int: The final calculated damage.
+            dict: A dictionary containing the final damage, damage breakdown, and primary damage type.
         """
+        damage_breakdown = {}
         final_damage = damage
+
+        print(f"[DEBUG _calculate_damage] Starting damage calculation for {self.name}")
+        print(f"[DEBUG _calculate_damage] Base damage: {damage}")
+        print(f"[DEBUG _calculate_damage] Damage types: {damage_types}")
+        print(f"[DEBUG _calculate_damage] Skill data: {skill_data}")
 
         # --- Damage Rules ---
 
         # 1. Skill-Based Scaling (if applicable)
         if skill_data:
-            if "stat_scaling" in skill_data["scaling_rules"]:
-                scaling_stat = skill_data["scaling_rules"]["stat_scaling"]
-                if scaling_stat in attacker.stats:
-                    scaling_value = attacker.stats[scaling_stat]
-                    final_damage = int(final_damage * (1 + (scaling_value / 10)))
-            if "level_scaling_factor" in skill_data["scaling_rules"]:
-                level_scaling_factor = skill_data["scaling_rules"]["level_scaling_factor"]
-                final_damage = int(final_damage * (1 + (attacker.level * level_scaling_factor)))
-            if "level" in skill_data:
-                skill_level = skill_data["level"]
-                final_damage = int(final_damage * (1 + (skill_level / 10)))
+            # Apply flat_stat_scaling first
             if "flat_stat_scaling" in skill_data["scaling_rules"]:
                 flat_stat_scaling = skill_data["scaling_rules"]["flat_stat_scaling"]
                 if flat_stat_scaling in attacker.stats:
                     flat_scaling_stat_value = attacker.stats[flat_stat_scaling]
                     flat_scaling_value = skill_data["scaling_rules"].get("flat_scaling_value", 0)
                     final_damage = int(flat_scaling_stat_value * flat_scaling_value)
+                    print("FLAT SCALING")
+                    print("FINAL DAMAGE: ", final_damage)
+            # Apply stat_scaling second
+            if "stat_scaling" in skill_data["scaling_rules"]:
+                scaling_stat = skill_data["scaling_rules"]["stat_scaling"]
+                if scaling_stat in attacker.stats:
+                    scaling_value = attacker.stats[scaling_stat]
+                    final_damage = int(final_damage * (1 + (scaling_value / 10)))
+                    print("STAT SCALING")
+                    print("FINAL DAMAGE: ", final_damage)
+            # Apply level_scaling_factor third
+            if "level_scaling_factor" in skill_data["scaling_rules"]:
+                level_scaling_factor = skill_data["scaling_rules"]["level_scaling_factor"]
+                final_damage = int(final_damage * (1 + (attacker.level * level_scaling_factor)))
+                print("COMBATANT LEVEL SCALING (level_scaling_factor):")
+                print("FINAL DAMAGE: ", final_damage)
+            # Apply level fourth
+            if "level" in skill_data:
+                skill_level = skill_data["level"]
+                final_damage = int(final_damage * (1 + (skill_level / 50)))
+                print("SKILL LEVEL SCALING:")
+                print("FINAL DAMAGE: ", final_damage)
             if "combined_stat_scaling" in skill_data["scaling_rules"]:
                 combined_scaling_total = 0
                 for stat, weight in skill_data["scaling_rules"]["combined_stat_scaling"]:
@@ -397,12 +415,28 @@ class Combatant:
                     else:
                         print(f"Warning: Combined scaling stat '{stat}' not found in combatant's stats.")
                 final_damage = int(combined_scaling_total * (1 + (attacker.level * level_scaling_factor)) * (1 + (skill_level / 10)))
-
+                print("COMBINED STAT SCALING:")
+                print("FINAL DAMAGE: ", final_damage)
+                
         # 2. Defense/Resistance
         # Example: Reduce damage based on the defender's defense stat
         if skill_data and "base_heal" in skill_data:
-            return final_damage
-        final_damage = max(0, final_damage - self.stats["defense"])
+            return {"final_damage": damage, "damage_breakdown": {"heal": damage}, "primary_damage_type": "heal"}
+        
+        # Apply damage type-specific calculations
+        for damage_type in damage_types:
+            print(f"[DEBUG _calculate_damage] Processing damage type: {damage_type}")
+            type_damage = final_damage  # Start with the base damage
+            if damage_type == "physical":
+                type_damage = max(0, type_damage - self.stats["defense"])
+            elif damage_type == "fire":
+                # Example: Reduce fire damage by 20%
+                type_damage = int(type_damage * 0.8)
+            # Add more damage type calculations here
+
+            damage_breakdown[damage_type] = type_damage
+            print(f"[DEBUG _calculate_damage] Damage breakdown for {damage_type}: {type_damage}")
+            # final_damage += type_damage # REMOVE THIS LINE
 
         # 3. Passive Skill Effects (e.g., damage reduction)
         if attacker:
@@ -432,8 +466,24 @@ class Combatant:
         # Ensure damage is not negative
         final_damage = max(0, final_damage)
 
-        return final_damage
+        # Determine primary damage type
+        primary_damage_type = None
+        max_damage = 0
+        print(damage_breakdown.items())
+        for type, type_damage in damage_breakdown.items():
+            if type_damage > max_damage:
+                max_damage = type_damage
+                primary_damage_type = type
 
+        print(f"[DEBUG _calculate_damage] Final damage: {final_damage}")
+        print(f"[DEBUG _calculate_damage] Damage breakdown: {damage_breakdown}")
+        print(f"[DEBUG _calculate_damage] Primary damage type: {primary_damage_type}")
+
+        return {
+            "final_damage": final_damage,
+            "damage_breakdown": damage_breakdown,
+            "primary_damage_type": primary_damage_type,
+        }
 
     def heal(self, amount):
         """Heals the combatant for a specified amount."""
@@ -543,16 +593,18 @@ class Combatant:
             attacker (Combatant): The combatant dealing the damage (if applicable).
             skill_data (dict): Data about the skill used (if applicable).
         """
+        damage_types = skill_data.get("damage_types", ["physical"])  # Default to physical if not specified
+        damage_result = self._calculate_damage(damage, damage_types, attacker, skill_data)
+        final_damage = damage_result["final_damage"]
+        primary_damage_type = damage_result["primary_damage_type"]
 
-        final_damage = self._calculate_damage(damage, damage_type, attacker, skill_data)
         print(f"[DEBUG take_damage] {self.name} (ID: {self.id}) is taking {final_damage} damage!")
 
         # Update health using cached stats
         self._cached_stats["health"] -= final_damage
         self.stats["health"] = self._cached_stats["health"]
         print(f"[DEBUG take_damage] {self.name} (ID: {self.id}) health after damage: {self.stats['health']}")
-
-        # print(f"DEBUG: {self.stats['health']} vs {self._max_health}")
+        print(f"[DEBUG take_damage] {self.name} took {final_damage} damage, primarily {primary_damage_type} damage.")
 
         # Trigger on_damage_taken effects
         for effect in self.effects:
@@ -563,6 +615,7 @@ class Combatant:
             self.grudge_list.clear()  # Clear grudges when defeated
             # print(f"[DEBUG] Cleared grudge list for {self.name} (ID: {self.id})")
         return self.stats["health"] > 0
+
 
     def update_effects_start_of_turn(self):
         """Handles effects at the start of the turn."""
