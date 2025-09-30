@@ -19,9 +19,9 @@ class Combatant:
             "general": {},
             "restoration_magic": {},
             "defensive_magic": {},
-            "effects": {}
+            "effects": {} # TODO: wrong place / remove this?
         }
-        self.effects = []
+        self.effects = [] # TODO: Currently effects are not stored/serialized correctly I think
         self.stats = self._calculate_stats()
         self._max_health = self._calculate_stats()["health"]
         self._cached_stats = self._calculate_stats()
@@ -34,6 +34,7 @@ class Combatant:
             "id": self.id,
             "name": self.name,
             "stats": self.stats,
+            "_max_health": self._max_health,
             "level": self.level,
             "hates_all": self.hates_all,
             "hates_player_and_companions": self.hates_player_and_companions,
@@ -43,6 +44,8 @@ class Combatant:
             "current_room": self.current_room,
             "skills": self.skills,
             "grudge_list": self.grudge_list,
+
+            # TODO: Old code? Remove / rethink?
             "status_effect": {
                 "buffs": self.combatant_manager.buffs if self.combatant_manager and isinstance(self.combatant_manager.buffs, dict) else {},
                 "debuffs": self.combatant_manager.debuffs if self.combatant_manager and isinstance(self.combatant_manager.debuffs, dict) else {}
@@ -74,7 +77,9 @@ class Combatant:
                     "defense_per_constitution": data.get("defense_per_constitution", 0)
                     }
         print(f"[DEBUG from_dict base_stats] {data['name']} base_stats: {base_stats}")
-        status_effects = data.get("status_effect", {"buffs": {}, "debuffs": {}}) # TODO: Check this
+
+        # TODO: ??
+        status_effects = data.get("status_effect", {"buffs": {}, "debuffs": {}})
 
         instance = cls(
             combatant_id=data["id"],
@@ -86,12 +91,12 @@ class Combatant:
             hates=data.get("hates", []),
             monster_type=data.get("monster_type", None),
         )
-        instance.grudge_list = data.get("grudge_list", [])
         print(f"[DEBUG from_dict] {data['name']} base_stats: {base_stats}")
         instance.current_room = data.get("current_room", None)
         instance.stats = data.get("stats", instance.stats)
+        instance._max_health = data.get("_max_health", instance._calculate_stats()["health"])
         instance.skills = data.get("skills", instance.skills)
-        instance.grudge_list = data.get("grudge_list", instance.grudge_list)
+        instance.grudge_list = data.get("grudge_list", [])
         
         return instance
 
@@ -216,7 +221,6 @@ class Combatant:
         if "defense_per_constitution" in self.base_stats:
             stats["defense"] += self.base_stats["defense_per_constitution"] * self.base_stats["constitution"]
 
-        print(f"[DEBUG _calculate_stats]   stats: {stats}")
         return stats
 
     def describe_stats(self):
@@ -435,10 +439,9 @@ class Combatant:
         return final_damage
 
     def heal(self, amount):
+        # TODO: Make sure _max_health is calculated and updated where appropriate
         """Heals the combatant for a specified amount."""
-        max_health = self._calculate_stats()["health"] # Calculate max health dynamically
-        # TODO: maybe some clarification needed
-        self.stats["health"] = min(self.stats["health"] + amount, max_health)
+        self.stats["health"] = min(self.stats["health"] + amount, self._max_health)
         print(f"{self.name} heals for {amount} health! Current health: {self.stats['health']}")
         self._update_cached_stats()
 
@@ -622,6 +625,7 @@ class Player(Combatant):
         )
         player.skills = data.get("skills", {})
         player.stats = data.get("stats", player._calculate_stats())
+        player._max_health = data.get("_max_health", player._calculate_stats()["health"])
         player.grudge_list = data.get("grudge_list", [])
         return player
 
@@ -702,6 +706,7 @@ class Companion(Combatant):
         )
         companion.skills = data.get("skills", {})
         companion.stats = data.get("stats", companion._calculate_stats())
+        companion._max_health = data.get("_max_health", companion._calculate_stats()["health"])
         companion.grudge_list = data.get("grudge_list", [])
         return companion
 
@@ -810,6 +815,7 @@ class Monster(Combatant):
         )
         monster.skills = data.get("skills", {})
         monster.stats = data.get("stats", monster._calculate_stats())
+        monster._max_health = data.get("_max_health", monster._calculate_stats()["health"])
         monster.grudge_list = data.get("grudge_list", [])
         return monster
 

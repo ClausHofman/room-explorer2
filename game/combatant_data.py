@@ -31,7 +31,7 @@ companion_data = {
             "general": ["combat_initiative"],
             "restoration_magic": ["cure_light_wounds"]
         },
-        "has_traits": {}
+        "has_traits": {""}
     }
 }
 
@@ -39,7 +39,7 @@ player_data = {
     "player": {
         "id": "player",
         "name": "Claus",
-        "health": 100,
+        "health": 123,
         "spell_points": 100,
         "attack": 50,
         "defense": 30,
@@ -98,8 +98,8 @@ creature_data = {
         "monster_type": "dragon",
         "has_traits": {"fire_breath": True},
         "skills": {
-            "offensive_melee": ["fireball"],
-            "passive_defense": [],
+            "offensive_melee": ["poison_bite"],
+            "passive_defense": ["tough_hide"],
             "passive_offense": ["attack"],
             "restoration_magic": ["cure_light_wounds"],
             "defensive_magic": ["magic_shield"],

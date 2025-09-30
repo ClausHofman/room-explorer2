@@ -57,11 +57,11 @@ available_skills = {
             "affects": ["take_damage"],
         },
         "tough_hide": {
-            "percent_reduction": 0.50,  # 10% damage reduction
+            "percent_reduction": 0.50,  # % damage reduction
             "level_scaling_factor": 0.002,
             "level": 1,
             "active": True,
-            "description": "Reduces incoming damage by 10%.",
+            "description": "Reduces incoming damage.",
             "affects": ["take_damage"],
         }
     },
@@ -78,7 +78,7 @@ available_skills = {
     },
     "restoration_magic": {
         "cure_light_wounds": {
-            "base_heal": 200,
+            "base_heal": 2000,
             "stat_scaling": "wisdom",
             "level_scaling_factor": 0.002,
             "level": 1,
