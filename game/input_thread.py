@@ -9,7 +9,7 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.keys import Keys
 from game.managers import RoomManager
 from game.shared_resources import stop_event, game_style
-from game.helper_functions import remove_creature_by_id, create_cluster_command, clear_screen, use_skill_command
+from game.helper_functions import remove_creature_by_id, create_cluster_command, clear_screen, use_skill_command, toggle_pause
 import threading
 
 DEBUG = False
@@ -130,6 +130,10 @@ def input_thread(player, movement_manager, turn_manager, player_action_manager):
 
 
     commands = {
+        "pause": {
+            "description": "Toggle game pause/resume",
+            "handler": lambda: toggle_pause(turn_manager),
+        },
         "remove_room": {
             "description": "Specify room_id to remove a room",
             "handler": lambda: turn_manager.room_manager.remove_room_by_id(room_id_to_remove=None),
@@ -192,6 +196,7 @@ def input_thread(player, movement_manager, turn_manager, player_action_manager):
                 "sw": "southwest",
                 "d": "down",
                 "u": "up",
+                "special": "special",
             }
         },
         "create_rooms": {

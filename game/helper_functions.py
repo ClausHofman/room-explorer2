@@ -16,7 +16,7 @@ movement_manager = None
 room_manager = None
 player_action_manager = None
 start_current_player_room = None
-TURN_INTERVAL = 2
+TURN_INTERVAL = 5
 
 
 def initialize_game():
@@ -48,18 +48,19 @@ def initialize_game():
         status_data=combatant_data.creature_status_data,
         level=100
     )
-    # print(player.describe_stats())
+    print(player.describe_stats())
     # player.level_up_skill("slash")  # Levels up the "slash" skill
     # player.level_up_skill("attack") # Levels up the "attack" skill
     # print(player.describe_stats())
 
-    companion1 = create_companion(
-        creature_type="companion",
-        companion_data=combatant_data.companion_data,
-        creature_traits=combatant_data.creature_traits_data,
-        status_data=combatant_data.creature_status_data,
-        level=10
-    )
+    # Create a companion (currently unused)
+    # companion1 = create_companion(
+    #     creature_type="companion",
+    #     companion_data=combatant_data.companion_data,
+    #     creature_traits=combatant_data.creature_traits_data,
+    #     status_data=combatant_data.creature_status_data,
+    #     level=10
+    # )
     # print(companion1.describe_stats())
     # companion1.level_up_skill("cure_light_wounds")  # Levels up the "cure_light_wounds" skill
     # print(companion1.describe_stats())
@@ -98,6 +99,8 @@ def initialize_game():
     # room2.connect(room1, "south")
     # room1.connect(room3, "east")
     # room3.connect(room1, "west")
+
+    # Add combatants for testing
 
     room1.add_combatant(player)
     room1.add_combatant(dragon1)
@@ -837,3 +840,7 @@ def use_skill_command(player, room_manager):
                 print("Invalid choice. Please enter a number from the list.")
         except ValueError:
             print("Invalid input. Please enter a number.")
+
+def toggle_pause(turn_manager):
+    turn_manager.game_paused = not turn_manager.game_paused
+    print("Game paused." if turn_manager.game_paused else "Game resumed.")

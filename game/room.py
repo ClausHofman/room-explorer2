@@ -145,7 +145,7 @@ class Room:
         elif room_ids:
             connection_data = {"target_room": target_room}
             connection_data.update(room_ids)  # Add the metadata
-            self.room_exits[direction] = connection_data
+            self.room_exits[direction] = connection_data["target_room"].room_id  # Store only the room_id
             print(f"[DEBUG CONNECT] Special connection established for {self.room_id}: {direction} -> {connection_data}")
             return
 

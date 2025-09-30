@@ -29,6 +29,7 @@ class PlayerActionManager(): # Changed
         ]), style=game_style)
 
         adjacent_rooms = self.room_manager.room_lookup[self.player.current_room].room_exits
+        print(f"[DEBUG] (look) adjacent rooms {adjacent_rooms}")
 
         for direction, room_id in adjacent_rooms.items():
             # print(f"{direction}: {self.room_manager.room_lookup[room_id]}") # Room object
@@ -233,8 +234,10 @@ class RoomManager:
                             if room_id_to_connect in self.room_lookup:
                                 starting_room.connect(self.room_lookup[room_id_to_connect], "special", room_id_to_connect=room_id_to_connect)
                                 print(f"Successfully made a special connection from {starting_room.room_id} to {self.room_lookup[room_id_to_connect].room_id}")
-                                self.room_lookup[room_id_to_connect].connect(starting_room, "special", starting_room_id=starting_room.room_id)
-                                print(f"Successfully made a special connection from {self.room_lookup[room_id_to_connect].room_id} to {starting_room.room_id}")
+
+                                # Uncomment if want two-way special connections
+                                # self.room_lookup[room_id_to_connect].connect(starting_room, "special", starting_room_id=starting_room.room_id)
+                                # print(f"Successfully made a special connection from {self.room_lookup[room_id_to_connect].room_id} to {starting_room.room_id}")
                                 break
                         else:
                             print("Invalid connection type. Please enter 's' or 'n'.")
@@ -466,12 +469,14 @@ class RoomManager:
                 for direction, new_rooms_room_id in new_rooms[cell_key].items():
                     if DEBUG:
                         print(f"[DEBUG] Checking direction: {direction}, Connection data: {new_rooms_room_id}")
-                        
-                    # Ignore up and down directions
-                    if direction == "up" or direction == "down":
+
+                    # Only process directions that are in map_direction_offsets (skip special, up, down, etc.)
+                    if direction not in map_direction_offsets:
+                        if DEBUG:
+                            print(f"[DEBUG] Skipping non-map direction: {direction}")
                         continue
 
-                    # Ignore special connections
+                    # Ignore special connections (dicts)
                     if isinstance(new_rooms_room_id, dict):
                         if DEBUG:
                             print(f"[DEBUG] Ignoring special connection: {direction}")
@@ -510,7 +515,7 @@ class RoomManager:
                         grid[path_row][path_col] = map_direction_representations[direction]
                         if DEBUG:
                             print(f"[DEBUG] Updated path: {grid[path_row][path_col]} at ({path_row}, {path_col})")
-                        
+
                     # Skip placing anything over the player's position because player symbol is already set
                     if room_id == player_room:
                         continue
@@ -635,7 +640,7 @@ class MovementManager(PlayerActionManager, RoomManager):
         current_room = self.room_manager.room_lookup[player.current_room]
 
         if direction not in current_room.room_exits:
-            print(f"You can't move to the {direction}. There's no path.")
+            print(f"You can't go there.")
             return False
 
         # Update player's current room
@@ -699,7 +704,7 @@ class MovementManager(PlayerActionManager, RoomManager):
         if direction:
             success = self.move_player(player, direction)
             if not success:
-                print(f"Unable to move {direction}.")
+                print(f"[DEBUG] Failed to move!")
         else:
             print("You must specify a direction to move (e.g., 'move north').")
 
@@ -733,6 +738,7 @@ class TurnManager:
         self.room_manager = RoomManager()
         self.stop_event = stop_event
         self.movement_manager = None
+        self.game_paused = False
 
     def advance_turn(self):
         self.current_turn += 1
@@ -744,10 +750,33 @@ class TurnManager:
 
     def start_timer(self, interval_seconds):
         def timer_task():
+            print("[DEBUG timer_task] Timer thread started.")
             while not self.stop_event.is_set():
-                time.sleep(interval_seconds)
-                self.advance_turn()
+                # print(f"[DEBUG Timer] Top of main loop. game_paused={self.game_paused}, stop_event={self.stop_event.is_set()}")
+                elapsed = 0
+                granularity = 0.1
+                while elapsed < interval_seconds:
+                    if self.game_paused:
+                        # print(f"[DEBUG Timer] Paused detected during sleep. Breaking inner loop at elapsed={elapsed}.")
+                        break
+                    if self.stop_event.is_set():
+                        # print(f"[DEBUG Timer] Stop event detected during sleep. Breaking inner loop at elapsed={elapsed}.")
+                        break
+                    time.sleep(granularity)
+                    elapsed += granularity
+                    # Debug print every 0.1 seconds
+                    # if int(elapsed*10) % int(10) == 0:  # Print every 1 second
+                    #     print(f"[DEBUG Timer] Slept {elapsed:.1f}/{interval_seconds} seconds.")
+                if not self.game_paused and not self.stop_event.is_set():
+                    # print(f"[DEBUG Timer] Advancing turn after {interval_seconds} seconds.")
+                    self.advance_turn()
+                else:
+                    # print(f"[DEBUG Timer] Skipping advance_turn. game_paused={self.game_paused}, stop_event={self.stop_event.is_set()}")
+                    if self.game_paused:
+                        time.sleep(1) # Sleep a bit before re-checking if paused
+                    continue
 
+                # This probably old code, maybe not useful?
                 # Passively check all game rooms for hostility on regular intervals
                 # if self.current_turn % 5 == 0 and self.current_turn != 0:
                 #     for room in self.room_manager.game_rooms:
